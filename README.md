@@ -8,41 +8,6 @@ to support Supreme Commander: Forged Alliance development.
 
 ---
 
-## What's in this package
-
-```
-script/
-  brave/brave.lua            Platform-aware event loop (bee.select on Windows, bee.epoll on Linux)
-  brave/work.lua             Compile options type annotation (adds exportEnvDefault field)
-  config/template.lua        Three new config keys: exportEnvDefault, disableScheme, supportScheme
-  core/folding.lua           --#region / -- #region folding support
-  core/highlight.lua         --#region / -- #region document highlight support
-  files.lua                  Passes exportEnvDefault from config into the parser
-  parser/compile.lua         exportEnvDefault parser integration; export flag on globals
-  parser/guide.lua           isExportEnv(state) function
-  provider/diagnostic.lua    disableScheme filtering
-  provider/provider.lua      supportScheme filtering on didOpen / didChange
-
-locale/en-us/setting.lua     English descriptions for the three new settings
-
-patches/                     Unified diffs against unmodified LuaLS 3.18.2
-  script_brave_brave.lua.patch
-  script_brave_work.lua.patch
-  script_config_template.lua.patch
-  script_core_folding.lua.patch
-  script_core_highlight.lua.patch
-  script_files.lua.patch
-  script_parser_compile.lua.patch
-  script_parser_guide.lua.patch
-  script_provider_diagnostic.lua.patch
-  script_provider_provider.lua.patch
-  locale_en-us_setting.lua.patch
-
-win32-cross-compile.ninja    Pre-generated ninja file for Windows cross-compilation from Linux
-```
-
----
-
 ## FA-Specific Features
 
 ### `---@export-env` / `---@declare-global` Directives
@@ -108,6 +73,42 @@ Both modules share the same `create()` / `event_add(fd, flags)` / `wait()` API.
 `bee.select.create()` takes no arguments; `bee.epoll.create(n)` takes a max-events hint.
 
 ---
+
+## What's in this package
+
+```
+script/
+  brave/brave.lua            Platform-aware event loop (bee.select on Windows, bee.epoll on Linux)
+  brave/work.lua             Compile options type annotation (adds exportEnvDefault field)
+  config/template.lua        Three new config keys: exportEnvDefault, disableScheme, supportScheme
+  core/folding.lua           --#region / -- #region folding support
+  core/highlight.lua         --#region / -- #region document highlight support
+  files.lua                  Passes exportEnvDefault from config into the parser
+  parser/compile.lua         exportEnvDefault parser integration; export flag on globals
+  parser/guide.lua           isExportEnv(state) function
+  provider/diagnostic.lua    disableScheme filtering
+  provider/provider.lua      supportScheme filtering on didOpen / didChange
+
+locale/en-us/setting.lua     English descriptions for the three new settings
+
+patches/                     Unified diffs against unmodified LuaLS 3.18.2
+  script_brave_brave.lua.patch
+  script_brave_work.lua.patch
+  script_config_template.lua.patch
+  script_core_folding.lua.patch
+  script_core_highlight.lua.patch
+  script_files.lua.patch
+  script_parser_compile.lua.patch
+  script_parser_guide.lua.patch
+  script_provider_diagnostic.lua.patch
+  script_provider_provider.lua.patch
+  locale_en-us_setting.lua.patch
+
+win32-cross-compile.ninja    Pre-generated ninja file for Windows cross-compilation from Linux
+```
+
+---
+
 
 ## Building
 
