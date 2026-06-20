@@ -1,0 +1,14 @@
+--- modern-ls/script/provider/diagnostic.lua	2026-06-18 02:02:04.732135197 +0000
++++ fa-modern-ls-work/script/provider/diagnostic.lua	2026-06-18 02:10:52.675604325 +0000
+@@ -274,6 +274,11 @@
+     if not util.arrayHas(enableScheme, scheme) then
+         return false
+     end
++    -- FAForever: also honour the legacy disableScheme list (additive restriction)
++    local disableScheme = config.get(uri, 'Lua.diagnostics.disableScheme')
++    if disableScheme and util.arrayHas(disableScheme, scheme) then
++        return false
++    end
+     return true
+ end
+ 

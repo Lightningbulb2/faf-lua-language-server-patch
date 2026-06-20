@@ -1,0 +1,43 @@
+--- modern-ls/script/parser/compile.lua	2026-06-18 02:02:04.727383915 +0000
++++ fa-modern-ls-work/script/parser/compile.lua	2026-06-18 23:45:58.612840851 +0000
+@@ -3337,6 +3337,17 @@
+ end
+ 
+ local function compileExpAsAction(exp)
++    -- FAForever: mark top-level globals as exported so the vm layer can use them
++    -- for require() type inference when exportEnvDefault is active.
++    if State.hasExportEnv
++    and exp.type == 'getglobal'
++    and not exp.node
++    then
++        local currentChunk = Chunk[#Chunk]
++        if currentChunk and currentChunk.type == 'main' then
++            exp.export = true
++        end
++    end
+     pushActionIntoCurrentChunk(exp)
+     if GetToSetMap[exp.type] then
+         skipSpace()
+@@ -4516,6 +4527,13 @@
+                     }
+                 end
+             end
++            -- FAForever: mark top-level function declarations as exported
++            if State.hasExportEnv and name.type == 'setglobal' then
++                local currentChunk = Chunk[#Chunk]
++                if currentChunk and currentChunk.type == 'main' then
++                    name.export = true
++                end
++            end
+             pushActionIntoCurrentChunk(name)
+             return name
+         else
+@@ -4644,6 +4662,8 @@
+     Mode = mode
+     initState(lua, version, options)
+     skipSpace()
++    -- FAForever: compute export-env flag once before parsing starts
++    State.hasExportEnv = guide.isExportEnv(State)
+     if     mode == 'Lua' then
+         State.ast = parseLua()
+     elseif mode == 'Nil' then

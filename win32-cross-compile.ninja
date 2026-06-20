@@ -1,0 +1,428 @@
+ninja_required_version = 1.7
+builddir = build/win32
+bin = $builddir/bin
+obj = $builddir/obj
+cc = x86_64-w64-mingw32-gcc
+ar = x86_64-w64-mingw32-ar
+luamake = /home/claude/fa-merge/fa-modern-ls-work/3rd/luamake/luamake
+rule configure
+  command = $luamake init -help
+  generator = 1
+rule c_source_lua
+  command = $cc -MMD -MT $out -MF $out.d -std=c11 -O2 -Wall $
+    -Ibuild/win32-compat -I3rd/bee.lua/3rd/lua55 -DMAKE_LIB -D_WIN32_WINNT=0x0602 -DNDEBUG -o $
+    $out -c $in
+  description = Compile C   $out
+  deps = gcc
+  depfile = $out.d
+build $obj/source_lua/onelua.obj: c_source_lua 3rd/bee.lua/3rd/lua55/onelua.c
+rule cxx_source_bee
+  command = $cc -MMD -MT $out -MF $out.d -std=c++17 -fno-rtti -O2 -Wall $
+    -Ibuild/win32-compat -I3rd/bee.lua/3rd/lua55 -DNDEBUG -o $out -c $in
+  description = Compile C++ $out
+  deps = gcc
+  depfile = $out.d
+build $obj/source_bee/lua-seri.obj: cxx_source_bee $
+    3rd/bee.lua/3rd/lua-seri/lua-seri.cpp
+rule cxx_source_bee_1
+  command = $cc -MMD -MT $out -MF $out.d -std=c++17 -fno-rtti -O2 -Wall $
+    -DNDEBUG -o $out -c $in
+  description = Compile C++ $out
+  deps = gcc
+  depfile = $out.d
+build $obj/source_bee/format.obj: cxx_source_bee_1 $
+    3rd/bee.lua/3rd/fmt/format.cc
+rule cxx_source_bee_2
+  command = $cc -MMD -MT $out -MF $out.d -std=c++17 -fno-rtti -O2 -Wall $
+    -I3rd/bee.lua -Ibuild/win32-compat -I3rd/bee.lua/3rd/lua55 -DNDEBUG $
+    -o $out -c $in
+  description = Compile C++ $out
+  deps = gcc
+  depfile = $out.d
+build $obj/source_bee/nanoid.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/crash/nanoid.cpp
+build $obj/source_bee/filewatch_win.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/filewatch/filewatch_win.cpp
+build $obj/source_bee/error.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/lua/error.cpp
+build $obj/source_bee/file.obj: cxx_source_bee_2 3rd/bee.lua/bee/lua/file.cpp
+build $obj/source_bee/luaref.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/lua/luaref.cpp
+build $obj/source_bee/bpoll_win.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/net/bpoll_win.cpp
+build $obj/source_bee/endpoint.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/net/endpoint.cpp
+build $obj/source_bee/event.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/net/event.cpp
+build $obj/source_bee/socket.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/net/socket.cpp
+
+build $obj/source_bee/subprocess_win.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/subprocess/subprocess_win.cpp
+build $obj/source_bee/file_handle.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/sys/file_handle.cpp
+build $obj/source_bee/file_handle_win.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/sys/file_handle_win.cpp
+
+build $obj/source_bee/path_win.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/sys/path_win.cpp
+
+build $obj/source_bee/atomic_sync.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/thread/atomic_sync.cpp
+build $obj/source_bee/setname.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/thread/setname.cpp
+build $obj/source_bee/simplethread_win.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/thread/simplethread_win.cpp
+build $obj/source_bee/spinlock.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/thread/spinlock.cpp
+build $obj/source_bee/version.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/version.cpp
+rule c_source_bee
+  command = $cc -MMD -MT $out -MF $out.d -std=c11 -O2 -Wall $
+    -I3rd/bee.lua -Ibuild/win32-compat -I3rd/bee.lua/3rd/lua55 -DBEE_STATIC $
+    -DNDEBUG -o $out -c $in
+  description = Compile C   $out
+  deps = gcc
+  depfile = $out.d
+build $obj/source_bee/bee_newstate.obj: c_source_bee $
+    3rd/bee.lua/3rd/lua-patch/bee_newstate.c
+rule cxx_source_bee_3
+  command = $cc -MMD -MT $out -MF $out.d -std=c++17 -fno-rtti -O2 -Wall $
+    -I3rd/bee.lua -Ibuild/win32-compat -I3rd/bee.lua/3rd/lua55 -DBEE_STATIC $
+    -DNDEBUG -o $out -c $in
+  description = Compile C++ $out
+  deps = gcc
+  depfile = $out.d
+build $obj/source_bee/lua_channel.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_channel.cpp
+build $obj/source_bee/lua_crash.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_crash.cpp
+build $obj/source_bee/lua_debugging.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_debugging.cpp
+build $obj/source_bee/lua_windows.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/port/lua_windows.cpp
+build $obj/source_bee/lua_filesystem.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_filesystem.cpp
+build $obj/source_bee/lua_filewatch.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_filewatch.cpp
+build $obj/source_bee/lua_platform.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_platform.cpp
+build $obj/source_bee/lua_select.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_select.cpp
+build $obj/source_bee/lua_serialization.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_serialization.cpp
+build $obj/source_bee/lua_socket.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_socket.cpp
+build $obj/source_bee/lua_subprocess.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_subprocess.cpp
+build $obj/source_bee/lua_sys.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_sys.cpp
+build $obj/source_bee/lua_thread.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_thread.cpp
+build $obj/source_bee/lua_time.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_time.cpp
+rule cxx_source_bootstrap
+  command = $cc -MMD -MT $out -MF $out.d -std=c++17 -fno-rtti -O2 -Wall $
+    -I3rd/bee.lua -Ibuild/win32-compat -I3rd/bee.lua/3rd/lua55 $
+    -D_WIN32_WINNT=0x0602 -DNDEBUG -o $out -c $in
+  description = Compile C++ $out
+  deps = gcc
+  depfile = $out.d
+build $obj/source_bootstrap/bootstrap_init.obj: cxx_source_bootstrap $
+    3rd/bee.lua/bootstrap/bootstrap_init.cpp
+build $obj/source_bootstrap/main.obj: cxx_source_bootstrap $
+    3rd/bee.lua/bootstrap/main.cpp
+rule link_bootstrap
+  command = $cc $in -o $out -Wl,-E -static-libgcc $
+    -static-libgcc -static-libstdc++ -s
+  description = Link    Exe $out
+rule copy
+  command = cp -fv $in$input $out 1>/dev/null
+  description = Copy $in$input $out
+  restat = 1
+rule test
+  command = $bin/bootstrap 3rd/bee.lua/test/test.lua --touch $out
+  description = Run test.
+  pool = console
+rule cxx_code_format
+  command = $cc -MMD -MT $out -MF $out.d -std=c++17 -O2 -Wall $
+    -I3rd/EmmyLuaCodeStyle/Util/include $
+    -I3rd/EmmyLuaCodeStyle/CodeFormatCore/include $
+    -I3rd/EmmyLuaCodeStyle/LuaParser/include -I3rd/bee.lua/3rd/lua54 $
+    -I3rd/EmmyLuaCodeStyle/3rd/wildcards/include -DNDEBUG -Wall -Werror -o $
+    $out -c $in
+  description = Compile C++ $out
+  deps = gcc
+  depfile = $out.d
+build $obj/code_format/EditorconfigPattern.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Config/EditorconfigPattern.cpp
+build $obj/code_format/FunctionOption.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Config/FunctionOption.cpp
+build $obj/code_format/LanguageTranslator.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Config/LanguageTranslator.cpp
+build $obj/code_format/LuaDiagnosticStyle.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Config/LuaDiagnosticStyle.cpp
+build $obj/code_format/LuaEditorConfig.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Config/LuaEditorConfig.cpp
+build $obj/code_format/LuaStyle.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Config/LuaStyle.cpp
+build $obj/code_format/CodeStyleChecker.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Diagnostic/CodeStyle/CodeStyleChecker.cpp
+build $obj/code_format/DiagnosticBuilder.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Diagnostic/DiagnosticBuilder.cpp
+build $obj/code_format/NameStyleChecker.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Diagnostic/NameStyle/NameStyleChecker.cpp
+build $obj/code_format/NameStyleRuleMatcher.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Diagnostic/NameStyle/NameStyleRuleMatcher.cpp
+build $obj/code_format/CodeSpellChecker.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Diagnostic/Spell/CodeSpellChecker.cpp
+build $obj/code_format/Util.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Diagnostic/Spell/Util.cpp
+build $obj/code_format/AlignAnalyzer.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Format/Analyzer/AlignAnalyzer.cpp
+build $obj/code_format/FormatAnalyzer.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Format/Analyzer/FormatAnalyzer.cpp
+build $obj/code_format/FormatDocAnalyze.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Format/Analyzer/FormatDocAnalyze.cpp
+build $obj/code_format/FormatResolve.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Format/Analyzer/FormatResolve.cpp
+build $obj/code_format/IndentationAnalyzer.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Format/Analyzer/IndentationAnalyzer.cpp
+build $obj/code_format/LineBreakAnalyzer.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Format/Analyzer/LineBreakAnalyzer.cpp
+build $obj/code_format/SemicolonAnalyzer.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Format/Analyzer/SemicolonAnalyzer.cpp
+build $obj/code_format/SpaceAnalyzer.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Format/Analyzer/SpaceAnalyzer.cpp
+build $obj/code_format/SyntaxNodeHelper.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Format/Analyzer/SyntaxNodeHelper.cpp
+build $obj/code_format/TokenAnalyzer.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Format/Analyzer/TokenAnalyzer.cpp
+build $obj/code_format/FormatBuilder.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Format/FormatBuilder.cpp
+build $obj/code_format/FormatState.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/Format/FormatState.cpp
+build $obj/code_format/RangeFormatBuilder.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/RangeFormat/RangeFormatBuilder.cpp
+build $obj/code_format/LuaTypeFormat.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/TypeFormat/LuaTypeFormat.cpp
+build $obj/code_format/LuaTypeFormatFeatures.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatCore/src/TypeFormat/LuaTypeFormatFeatures.cpp
+build $obj/code_format/CodeFormatLib.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatLib/src/CodeFormatLib.cpp
+build $obj/code_format/LuaCodeFormat.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatLib/src/LuaCodeFormat.cpp
+build $obj/code_format/LuaJIT-Compact.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/CodeFormatLib/src/LuaJIT-Compact.cpp
+build $obj/code_format/LuaSyntaxMultiKind.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/LuaParser/src/Ast/LuaSyntaxMultiKind.cpp
+build $obj/code_format/LuaSyntaxNode.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/LuaParser/src/Ast/LuaSyntaxNode.cpp
+build $obj/code_format/LuaSyntaxNodeKind.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/LuaParser/src/Ast/LuaSyntaxNodeKind.cpp
+build $obj/code_format/LuaSyntaxTree.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/LuaParser/src/Ast/LuaSyntaxTree.cpp
+build $obj/code_format/LuaSource.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/LuaParser/src/File/LuaSource.cpp
+build $obj/code_format/LuaIdentify.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/LuaParser/src/Lexer/LuaIdentify.cpp
+build $obj/code_format/LuaLexer.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/LuaParser/src/Lexer/LuaLexer.cpp
+build $obj/code_format/TextReader.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/LuaParser/src/Lexer/TextReader.cpp
+build $obj/code_format/LuaParser.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/LuaParser/src/Parse/LuaParser.cpp
+build $obj/code_format/Mark.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/LuaParser/src/Parse/Mark.cpp
+build $obj/code_format/TextRange.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/LuaParser/src/Types/TextRange.cpp
+build $obj/code_format/LuaParseException.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/LuaParser/src/exception/LuaParseException.cpp
+build $obj/code_format/InfoNode.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/Util/src/InfoTree/InfoNode.cpp
+build $obj/code_format/InfoTree.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/Util/src/InfoTree/InfoTree.cpp
+build $obj/code_format/StringUtil.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/Util/src/StringUtil.cpp
+build $obj/code_format/EditDistance.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/Util/src/SymSpell/EditDistance.cpp
+build $obj/code_format/SuggestItem.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/Util/src/SymSpell/SuggestItem.cpp
+build $obj/code_format/SymSpell.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/Util/src/SymSpell/SymSpell.cpp
+build $obj/code_format/Utf8.obj: cxx_code_format $
+    3rd/EmmyLuaCodeStyle/Util/src/Utf8.cpp
+rule c_lpeglabel
+  command = $cc -MMD -MT $out -MF $out.d -std=c11 -O2 -Wall $
+    -Ibuild/win32-compat -I3rd/bee.lua/3rd/lua55 -DMAXRECLEVEL=1000 -DNDEBUG $
+    -o $out -c $in
+  description = Compile C   $out
+  deps = gcc
+  depfile = $out.d
+build $obj/lpeglabel/lplcap.obj: c_lpeglabel 3rd/lpeglabel/lplcap.c
+build $obj/lpeglabel/lplcode.obj: c_lpeglabel 3rd/lpeglabel/lplcode.c
+build $obj/lpeglabel/lplprint.obj: c_lpeglabel 3rd/lpeglabel/lplprint.c
+build $obj/lpeglabel/lpltree.obj: c_lpeglabel 3rd/lpeglabel/lpltree.c
+build $obj/lpeglabel/lplvm.obj: c_lpeglabel 3rd/lpeglabel/lplvm.c
+rule cxx_lua_language_server
+  command = $cc -MMD -MT $out -MF $out.d -std=c++17 -O2 -Wall $
+    -I3rd/bee.lua -Ibuild/win32-compat -I3rd/bee.lua/3rd/lua55 -DCODE_FORMAT $
+    -DNDEBUG -o $out -c $in
+  description = Compile C++ $out
+  deps = gcc
+  depfile = $out.d
+build $obj/lua-language-server/modules.obj: cxx_lua_language_server $
+    make/modules.cpp
+rule link_lua_language_server
+  command = $cc $in -o $out $
+    -Wl,-Bstatic /usr/lib/gcc/x86_64-w64-mingw32/13-posix/libstdc++.a /usr/lib/gcc/x86_64-w64-mingw32/13-posix/libsupc++.a /usr/lib/gcc/x86_64-w64-mingw32/13-posix/libgcc_eh.a /usr/lib/gcc/x86_64-w64-mingw32/13-posix/libgcc.a -Wl,-Bdynamic $
+    -lws2_32 -lpsapi -liphlpapi -lwsock32 -lshlwapi -ldbghelp $
+    -lole32 -luserenv -lbcrypt -lntdll -lversion -lsynchronization -s
+  description = Link    Exe $out
+rule run_bee_test
+  command = $bin/lua-language-server $in
+  description = Run test: $in.
+  pool = console
+rule run_unit_test
+  command = bin/lua-language-server $in
+  description = Run test: $in.
+  pool = console
+build $bin/bootstrap: link_bootstrap $obj/source_bee/lua-seri.obj $
+    $obj/source_bee/format.obj $obj/source_bee/nanoid.obj $
+    $obj/source_bee/filewatch_win.obj $obj/source_bee/error.obj $
+    $obj/source_bee/file.obj $obj/source_bee/luaref.obj $
+    $obj/source_bee/bpoll_win.obj $obj/source_bee/endpoint.obj $
+    $obj/source_bee/event.obj $obj/source_bee/socket.obj $
+    $obj/source_bee/subprocess_win.obj $
+    $obj/source_bee/file_handle.obj $obj/source_bee/file_handle_win.obj $
+    $obj/source_bee/path_win.obj $
+    $obj/source_bee/atomic_sync.obj $
+    $obj/source_bee/setname.obj $obj/source_bee/simplethread_win.obj $
+    $obj/source_bee/spinlock.obj $obj/source_bee/version.obj $
+    $obj/source_bee/bee_newstate.obj $obj/source_bee/lua_channel.obj $
+    $obj/source_bee/lua_crash.obj $obj/source_bee/lua_debugging.obj $
+    $obj/source_bee/lua_windows.obj $obj/source_bee/lua_filesystem.obj $
+    $obj/source_bee/lua_filewatch.obj $obj/source_bee/lua_platform.obj $
+    $obj/source_bee/lua_select.obj $obj/source_bee/lua_serialization.obj $
+    $obj/source_bee/lua_socket.obj $obj/source_bee/lua_subprocess.obj $
+    $obj/source_bee/lua_sys.obj $obj/source_bee/lua_thread.obj $
+    $obj/source_bee/lua_time.obj $obj/source_lua/onelua.obj $
+    $obj/source_bootstrap/bootstrap_init.obj $obj/source_bootstrap/main.obj
+build $bin/main.lua: copy | $bin/bootstrap
+  input = 3rd/bee.lua/bootstrap/main.lua
+build $obj/test.stamp: test 3rd/bee.lua/test/glibc-version.lua $
+    3rd/bee.lua/test/ltest.lua 3rd/bee.lua/test/shell.lua $
+    3rd/bee.lua/test/supported.lua 3rd/bee.lua/test/test.lua $
+    3rd/bee.lua/test/test_channel.lua 3rd/bee.lua/test/test_epoll.lua $
+    3rd/bee.lua/test/test_filesystem.lua $
+    3rd/bee.lua/test/test_filewatch.lua 3rd/bee.lua/test/test_lua.lua $
+    3rd/bee.lua/test/test_serialization.lua 3rd/bee.lua/test/test_skip.lua $
+    3rd/bee.lua/test/test_socket.lua 3rd/bee.lua/test/test_subprocess.lua $
+    3rd/bee.lua/test/test_sys.lua 3rd/bee.lua/test/test_thread.lua $
+    3rd/bee.lua/test/test_time.lua 3rd/bee.lua/test/test_windows.lua | $
+    $bin/bootstrap copy_script
+
+build $obj/source_bee/win_wtf8.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/win/wtf8.cpp
+build $obj/source_bee/win_unicode.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/win/unicode.cpp
+build $obj/source_bee/win_module_version.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/win/module_version.cpp
+build $obj/source_bee/win_afd.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/win/afd/afd.cpp
+build $obj/source_bee/win_poller.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/win/afd/poller.cpp
+build $obj/source_bee/win_poller_fd.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/win/afd/poller_fd.cpp
+
+build $obj/source_bee/win_uds.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/net/uds_win.cpp
+build $obj/source_bee/bee_utf8_crt.obj: cxx_source_bee_2 $
+    3rd/bee.lua/3rd/lua-patch/bee_utf8_crt.cpp
+
+build $obj/source_bee/process_select.obj: cxx_source_bee_2 $
+    3rd/bee.lua/bee/subprocess/process_select.cpp
+build $bin/lua-language-server.exe: link_lua_language_server $
+    $obj/lua-language-server/modules.obj $obj/source_bee/lua-seri.obj $
+    $obj/source_bee/win_wtf8.obj $
+    $obj/source_bee/process_select.obj $
+    $obj/source_bee/win_uds.obj $
+    $obj/source_bee/bee_utf8_crt.obj $
+    $obj/source_bee/win_unicode.obj $
+    $obj/source_bee/win_module_version.obj $
+    $obj/source_bee/win_afd.obj $
+    $obj/source_bee/win_poller.obj $
+    $obj/source_bee/win_poller_fd.obj $
+    $obj/source_bee/format.obj $obj/source_bee/nanoid.obj $
+    $obj/source_bee/filewatch_win.obj $obj/source_bee/error.obj $
+    $obj/source_bee/file.obj $obj/source_bee/luaref.obj $
+    $obj/source_bee/bpoll_win.obj $obj/source_bee/endpoint.obj $
+    $obj/source_bee/event.obj $obj/source_bee/socket.obj $
+    $obj/source_bee/subprocess_win.obj $
+    $obj/source_bee/file_handle.obj $obj/source_bee/file_handle_win.obj $
+    $obj/source_bee/path_win.obj $
+    $obj/source_bee/atomic_sync.obj $
+    $obj/source_bee/setname.obj $obj/source_bee/simplethread_win.obj $
+    $obj/source_bee/spinlock.obj $obj/source_bee/version.obj $
+    $obj/source_bee/bee_newstate.obj $obj/source_bee/lua_channel.obj $
+    $obj/source_bee/lua_crash.obj $obj/source_bee/lua_debugging.obj $
+    $obj/source_bee/lua_windows.obj $obj/source_bee/lua_filesystem.obj $
+    $obj/source_bee/lua_filewatch.obj $obj/source_bee/lua_platform.obj $
+    $obj/source_bee/lua_select.obj $obj/source_bee/lua_serialization.obj $
+    $obj/source_bee/lua_socket.obj $obj/source_bee/lua_subprocess.obj $
+    $obj/source_bee/lua_sys.obj $obj/source_bee/lua_thread.obj $
+    $obj/source_bee/lua_time.obj $obj/source_lua/onelua.obj $
+    $obj/lpeglabel/lplcap.obj $obj/lpeglabel/lplcode.obj $
+    $obj/lpeglabel/lplprint.obj $obj/lpeglabel/lpltree.obj $
+    $obj/lpeglabel/lplvm.obj $obj/source_bootstrap/bootstrap_init.obj $
+    $obj/source_bootstrap/main.obj $obj/code_format/EditorconfigPattern.obj $
+    $obj/code_format/FunctionOption.obj $
+    $obj/code_format/LanguageTranslator.obj $
+    $obj/code_format/LuaDiagnosticStyle.obj $
+    $obj/code_format/LuaEditorConfig.obj $obj/code_format/LuaStyle.obj $
+    $obj/code_format/CodeStyleChecker.obj $
+    $obj/code_format/DiagnosticBuilder.obj $
+    $obj/code_format/NameStyleChecker.obj $
+    $obj/code_format/NameStyleRuleMatcher.obj $
+    $obj/code_format/CodeSpellChecker.obj $obj/code_format/Util.obj $
+    $obj/code_format/AlignAnalyzer.obj $obj/code_format/FormatAnalyzer.obj $
+    $obj/code_format/FormatDocAnalyze.obj $
+    $obj/code_format/FormatResolve.obj $
+    $obj/code_format/IndentationAnalyzer.obj $
+    $obj/code_format/LineBreakAnalyzer.obj $
+    $obj/code_format/SemicolonAnalyzer.obj $
+    $obj/code_format/SpaceAnalyzer.obj $
+    $obj/code_format/SyntaxNodeHelper.obj $
+    $obj/code_format/TokenAnalyzer.obj $obj/code_format/FormatBuilder.obj $
+    $obj/code_format/FormatState.obj $
+    $obj/code_format/RangeFormatBuilder.obj $
+    $obj/code_format/LuaTypeFormat.obj $
+    $obj/code_format/LuaTypeFormatFeatures.obj $
+    $obj/code_format/CodeFormatLib.obj $obj/code_format/LuaCodeFormat.obj $
+    $obj/code_format/LuaJIT-Compact.obj $
+    $obj/code_format/LuaSyntaxMultiKind.obj $
+    $obj/code_format/LuaSyntaxNode.obj $
+    $obj/code_format/LuaSyntaxNodeKind.obj $
+    $obj/code_format/LuaSyntaxTree.obj $obj/code_format/LuaSource.obj $
+    $obj/code_format/LuaIdentify.obj $obj/code_format/LuaLexer.obj $
+    $obj/code_format/TextReader.obj $obj/code_format/LuaParser.obj $
+    $obj/code_format/Mark.obj $obj/code_format/TextRange.obj $
+    $obj/code_format/LuaParseException.obj $obj/code_format/InfoNode.obj $
+    $obj/code_format/InfoTree.obj $obj/code_format/StringUtil.obj $
+    $obj/code_format/EditDistance.obj $obj/code_format/SuggestItem.obj $
+    $obj/code_format/SymSpell.obj $obj/code_format/Utf8.obj
+build bin/lua-language-server.exe: copy $bin/lua-language-server.exe
+build bin/main.lua: copy make/bootstrap.lua
+build $builddir/build.ninja: configure make.lua make/detect_platform.lua $
+    3rd/bee.lua/make.lua 3rd/bee.lua/compile/common.lua $
+    3rd/bee.lua/compile/bootstrap.lua make/code_format.lua
+build bootstrap: phony $bin/bootstrap
+build copy_script: phony $bin/main.lua
+build lua-language-server: phony $bin/lua-language-server.exe
+build copy_lua-language-server: phony bin/lua-language-server.exe
+build copy_bootstrap: phony bin/main.lua
+build all: phony $bin/lua-language-server.exe copy_lua-language-server $
+    copy_bootstrap
+build bee-test: phony $builddir/_/bee-test
+build unit-test: phony $builddir/_/unit-test
+default all

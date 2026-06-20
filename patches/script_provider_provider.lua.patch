@@ -1,0 +1,28 @@
+--- modern-ls/script/provider/provider.lua	2026-06-18 02:02:04.732135197 +0000
++++ fa-modern-ls-work/script/provider/provider.lua	2026-06-18 02:11:23.240409820 +0000
+@@ -272,6 +272,12 @@
+     ---@async
+     function (params)
+         local doc      = params.textDocument
++        -- FAForever: honour supportScheme whitelist
++        local scheme   = furi.split(doc.uri)
++        local supports = config.get(doc.uri, 'Lua.workspace.supportScheme')
++        if supports and #supports > 0 and not util.arrayHas(supports, scheme) then
++            return
++        end
+         local uri      = files.getRealUri(doc.uri)
+         log.debug('didOpen', uri)
+         local text  = doc.text
+@@ -301,6 +307,12 @@
+     function (params)
+         local fixIndent = require 'core.fix-indent'
+         local doc     = params.textDocument
++        -- FAForever: honour supportScheme whitelist
++        local scheme   = furi.split(doc.uri)
++        local supports = config.get(doc.uri, 'Lua.workspace.supportScheme')
++        if supports and #supports > 0 and not util.arrayHas(supports, scheme) then
++            return
++        end
+         local changes = params.contentChanges
+         local uri     = files.getRealUri(doc.uri)
+         local text    = files.getOriginText(uri)

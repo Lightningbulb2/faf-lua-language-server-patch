@@ -1,0 +1,10 @@
+--- modern-ls/script/brave/work.lua	2026-06-18 02:02:04.715354333 +0000
++++ fa-modern-ls-work/script/brave/work.lua	2026-06-18 02:08:12.111755142 +0000
+@@ -107,6 +107,7 @@
+ ---@field special table<string, string>
+ ---@field unicodeName boolean
+ ---@field nonstandardSymbol table<string, true>
++---@field exportEnvDefault boolean
+ 
+ ---@param param brave.param.compile
+ brave.on('compile', function (param)

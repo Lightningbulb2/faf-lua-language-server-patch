@@ -1,0 +1,30 @@
+--- modern-ls/script/files.lua	2026-06-18 02:02:04.724670608 +0000
++++ fa-modern-ls-work/script/files.lua	2026-06-18 02:08:06.533533887 +0000
+@@ -598,9 +598,10 @@
+ 
+     ---@type brave.param.compile.options
+     local options = {
+-        special           = config.get(uri, 'Lua.runtime.special'),
+-        unicodeName       = config.get(uri, 'Lua.runtime.unicodeName'),
+-        nonstandardSymbol = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
++        special            = config.get(uri, 'Lua.runtime.special'),
++        unicodeName        = config.get(uri, 'Lua.runtime.unicodeName'),
++        nonstandardSymbol  = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
++        exportEnvDefault   = config.get(uri, 'Lua.runtime.exportEnvDefault'),
+     }
+ 
+     ---@type brave.param.compile
+@@ -652,9 +653,10 @@
+ 
+     ---@type brave.param.compile.options
+     local options = {
+-        special           = config.get(uri, 'Lua.runtime.special'),
+-        unicodeName       = config.get(uri, 'Lua.runtime.unicodeName'),
+-        nonstandardSymbol = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
++        special            = config.get(uri, 'Lua.runtime.special'),
++        unicodeName        = config.get(uri, 'Lua.runtime.unicodeName'),
++        nonstandardSymbol  = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
++        exportEnvDefault   = config.get(uri, 'Lua.runtime.exportEnvDefault'),
+     }
+ 
+     local ws     = require 'workspace'

@@ -1,0 +1,29 @@
+--- modern-ls/script/core/highlight.lua	2026-06-18 02:02:04.719254236 +0000
++++ fa-modern-ls-work/script/core/highlight.lua	2026-06-19 09:24:07.363285811 +0000
+@@ -130,17 +130,22 @@
+     end)
+ end
+ 
++-- FAForever: also match --#region / -- #region (preprocessed forms)
+ local function isRegion(str)
+-    if str:sub(1, #'region') == 'region'
+-    or str:sub(1, #'#region') == '#region' then
++    if str:sub(1, #'region')     == 'region'
++    or str:sub(1, #'#region')    == '#region'
++    or str:sub(1, #'--region')   == '--region'
++    or str:sub(1, #'-- region')  == '-- region' then
+         return true
+     end
+     return false
+ end
+ 
+ local function isEndRegion(str)
+-    if str:sub(1, #'endregion') == 'endregion'
+-    or str:sub(1, #'#endregion') == '#endregion' then
++    if str:sub(1, #'endregion')     == 'endregion'
++    or str:sub(1, #'#endregion')    == '#endregion'
++    or str:sub(1, #'--endregion')   == '--endregion'
++    or str:sub(1, #'-- endregion')  == '-- endregion' then
+         return true
+     end
+     return false
