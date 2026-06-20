@@ -1,4 +1,6 @@
-# FA Lua Language Server — Patches
+Notice: Claude was used to read all the FAF specific functionality from https://github.com/FAForever/fa-lua-language-server and build this patch for the modern version.
+
+# FA Lua Language Server - Patch
 
 This package contains the FA-specific patches applied to
 [LuaLS](https://github.com/LuaLS/lua-language-server) v3.18.2
