@@ -1,5 +1,5 @@
---- modern-ls/script/parser/compile.lua	2026-06-18 02:02:04.727383915 +0000
-+++ fa-modern-ls-work/script/parser/compile.lua	2026-06-18 23:45:58.612840851 +0000
+--- luals-3.18.2/script/parser/compile.lua	2026-06-20 07:50:37.142827155 +0000
++++ luals-3.18.2-patched/script/parser/compile.lua	2026-06-20 07:50:54.712605834 +0000
 @@ -3337,6 +3337,17 @@
  end
  

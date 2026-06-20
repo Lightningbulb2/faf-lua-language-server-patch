@@ -1,5 +1,5 @@
---- modern-ls/script/core/folding.lua	2026-06-18 02:02:04.719254236 +0000
-+++ fa-modern-ls-work/script/core/folding.lua	2026-06-19 09:23:55.948347110 +0000
+--- luals-3.18.2/script/core/folding.lua	2026-06-20 07:50:37.130827155 +0000
++++ luals-3.18.2-patched/script/core/folding.lua	2026-06-20 07:50:54.705920195 +0000
 @@ -96,14 +96,32 @@
      ['comment.short'] = function (source, _text, results, status)
          local ltext = source.text:lower()

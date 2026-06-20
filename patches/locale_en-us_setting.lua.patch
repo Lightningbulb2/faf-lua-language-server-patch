@@ -1,5 +1,5 @@
---- modern-ls/locale/en-us/setting.lua	2026-06-18 02:02:04.687240204 +0000
-+++ fa-modern-ls-work/locale/en-us/setting.lua	2026-06-18 02:11:49.873485687 +0000
+--- luals-3.18.2/locale/en-us/setting.lua	2026-06-20 07:50:37.078827153 +0000
++++ luals-3.18.2-patched/locale/en-us/setting.lua	2026-06-20 07:50:55.066583003 +0000
 @@ -36,6 +36,9 @@
  "Plugin path. Please read [wiki](https://luals.github.io/wiki/plugins) to learn more."
  config.runtime.pluginArgs         =

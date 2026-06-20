@@ -1,5 +1,5 @@
---- modern-ls/script/brave/work.lua	2026-06-18 02:02:04.715354333 +0000
-+++ fa-modern-ls-work/script/brave/work.lua	2026-06-18 02:08:12.111755142 +0000
+--- luals-3.18.2/script/brave/work.lua	2026-06-20 07:50:37.117677622 +0000
++++ luals-3.18.2-patched/script/brave/work.lua	2026-06-20 07:50:54.698425828 +0000
 @@ -107,6 +107,7 @@
  ---@field special table<string, string>
  ---@field unicodeName boolean

@@ -19,12 +19,12 @@ FA scripts define module-level globals that other files access through the envir
 rather than explicit `require`. These directives control how the server treats globals
 per-file:
 
-| Directive | Effect |
-|---|---|
-| *(no directive, `exportEnvDefault = true`)* | All top-level globals treated as exported env symbols |
-| `---@declare-global` | Opts this file **out** of export-env |
-| `---@export-env` | Opts this file **in** when `exportEnvDefault = false` |
-| `---@meta` | Marks file as type-declaration; disables export-env |
+| Directive                                   | Effect                                                |
+| ------------------------------------------- | ----------------------------------------------------- |
+| _(no directive, `exportEnvDefault = true`)_ | All top-level globals treated as exported env symbols |
+| `---@declare-global`                        | Opts this file **out** of export-env                  |
+| `---@export-env`                            | Opts this file **in** when `exportEnvDefault = false` |
+| `---@meta`                                  | Marks file as type-declaration; disables export-env   |
 
 **Implementation:** `guide.lua` adds `isExportEnv(state)` which reads per-file comment
 directives. `compile.lua` calls it once at parse start and sets `State.hasExportEnv`.
@@ -38,12 +38,12 @@ so the comment text the folding provider sees is `--region` rather than `#region
 
 `core/folding.lua` and `core/highlight.lua` both match all four variants:
 
-| Input | Comment text after preprocessing | Matched by |
-|---|---|---|
-| `-- #region` | ` #region` | `#region` pattern |
-| `--region` | `region` | `region` pattern |
-| `--#region` | `--region` | `--region` pattern (FA-specific) |
-| `-- #region` (space) | ` -- region` | `-- region` pattern (FA-specific) |
+| Input                | Comment text after preprocessing | Matched by                        |
+| -------------------- | -------------------------------- | --------------------------------- |
+| `-- #region`         | ` #region`                       | `#region` pattern                 |
+| `--region`           | `region`                         | `region` pattern                  |
+| `--#region`          | `--region`                       | `--region` pattern (FA-specific)  |
+| `-- #region` (space) | ` -- region`                     | `-- region` pattern (FA-specific) |
 
 ### `Lua.diagnostics.disableScheme`
 
@@ -109,28 +109,32 @@ win32-cross-compile.ninja    Pre-generated ninja file for Windows cross-compilat
 
 ---
 
-
 ## Building
 
 ### Prerequisites
 
-| Tool | Notes |
-|---|---|
-| Git | For cloning and submodule init |
-| GCC ≥ 11 | Linux native build |
-| ninja ≥ 1.10 | `apt install ninja-build` |
+| Tool                             | Notes                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| Git                              | For cloning and submodule init                                                       |
+| GCC ≥ 11                         | Linux native build                                                                   |
+| ninja ≥ 1.10                     | `apt install ninja-build`                                                            |
 | `x86_64-w64-mingw32-gcc` (posix) | Windows cross-compile only — `apt install gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64` |
 
 Switch mingw to the posix threading model (required for C++ exceptions):
+
 ```sh
 update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
 update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
 ```
 
-### Step 1 — Clone LuaLS and init submodules
+### Step 1 — Clone LuaLS 3.18.2 and init submodules
+
+> **Version matters.** These patches are generated against the exact `3.18.2` tag.
+> Cloning `main`/HEAD will get a newer commit with different line numbers and the
+> patches will fail to apply.
 
 ```sh
-git clone --depth=1 https://github.com/LuaLS/lua-language-server
+git clone --depth=1 --branch 3.18.2 https://github.com/LuaLS/lua-language-server
 cd lua-language-server
 git submodule update --init 3rd/luamake 3rd/bee.lua 3rd/EmmyLuaCodeStyle 3rd/lpeglabel
 ```
@@ -164,23 +168,75 @@ cp $SRC/locale/en-us/setting.lua          locale/en-us/setting.lua
 
 ### Step 3 — Build luamake
 
+**On Linux/macOS:**
+
 ```sh
 cd 3rd/luamake
 bash compile/build.sh
 cd ../..
 ```
 
-### Step 4 — Build the Linux binary
+**On Windows** (requires Visual Studio 2019 or later, or Build Tools):
+
+Open a **plain Command Prompt** (not Git Bash — `build.bat` must detect MSVC via
+`vswhere.exe`):
+
+```bat
+cd 3rd\luamake
+compile\build.bat
+cd ..\..\
+```
+
+> `compile/build.sh` does **not** work on Windows — it targets the mingw compiler
+> and will fail with exit code 3221225785 even if Git Bash is installed. Always use
+> `compile\build.bat` on Windows.
+
+Ninja must be in your PATH. Visual Studio's Developer Command Prompt includes it
+automatically, or install it standalone: https://github.com/ninja-build/ninja/releases
+
+If you get this error:
+
+ninja: error: 'bee.lua/bootstrap/bootstrap.rc', needed by 'build/msvc/obj/luamake/bootstrap.obj', missing and no known rule to make it
+
+Then do:
+
+```
+cd PATH/TO/THE/lua-language-server
+git submodule update --init --recursive
+```
+
+### Step 4 — Build the binary
+
+**On Linux/macOS:**
 
 ```sh
 ./3rd/luamake/luamake rebuild
 ```
 
-This runs the full test suite. All tests must pass. Output: `bin/lua-language-server`
+**On Windows** (from a plain Command Prompt or VS Developer Command Prompt):
 
-### Step 5 — Build the Windows binary (cross-compile from Linux)
+```bat
+3rd\luamake\luamake.exe rebuild
+```
+
+This runs the full test suite. All tests must pass.
+
+Output:
+
+- Linux/macOS: `bin/lua-language-server`
+- Windows: `bin/lua-language-server.exe` + `bin/lua-language-server.dll` + MSVC runtime DLLs
+
+### Step 5 — Build the Windows binary from Linux (cross-compile, optional)
+
+Only needed if you want to produce a Windows binary on a Linux host. Skip this if
+you built natively on Windows in Step 4.
 
 ```sh
+# Prerequisites: apt install gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+# Switch to posix threading model:
+update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+
 # Create Windows.h case shims (Linux filesystem is case-sensitive)
 mkdir -p build/win32-compat
 echo '#include <windows.h>'  > build/win32-compat/Windows.h
@@ -191,17 +247,15 @@ echo '#include <dbgeng.h>'   > build/win32-compat/DbgEng.h
 # Create output directories
 mkdir -p build/win32/{obj/{source_bee,source_lua,lua-language-server,lpeglabel,source_bootstrap,code_format},bin}
 
-# Build
+# Build using the cross-compile ninja file from this package
 ninja -f /path/to/this/package/win32-cross-compile.ninja all
 ```
 
 Output: `build/win32/bin/lua-language-server.exe`
 
-The exe only depends on `libwinpthread-1.dll` at runtime (at
-`/usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll`). All other dependencies are
-standard Windows system DLLs.
+The cross-compiled exe depends only on `libwinpthread-1.dll` (no MSVC runtime).
+The natively-built Windows exe ships with MSVC runtime DLLs instead.
 
-Verify with:
 ```sh
 x86_64-w64-mingw32-objdump -p build/win32/bin/lua-language-server.exe | grep "DLL Name"
 # KERNEL32.dll, VERSION.dll, WS2_32.dll, ntdll.dll, libwinpthread-1.dll, msvcrt.dll

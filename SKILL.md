@@ -119,10 +119,12 @@ gives `--region` as the comment text. The `#region` pattern won't match it.
 
 ## Build Procedure
 
-### Linux binary
+### Linux/macOS binary
 
 ```sh
-# 1. Init submodules (once per clone)
+# 1. Clone the exact 3.18.2 tag (patches won't apply to other versions)
+git clone --depth=1 --branch 3.18.2 https://github.com/LuaLS/lua-language-server
+cd lua-language-server
 git submodule update --init 3rd/luamake 3rd/bee.lua 3rd/EmmyLuaCodeStyle 3rd/lpeglabel
 
 # 2. Build luamake
@@ -133,7 +135,27 @@ cd 3rd/luamake && bash compile/build.sh && cd ../..
 # All tests must pass before packaging
 ```
 
-### Windows binary (cross-compile from Linux)
+### Windows binary (native, requires Visual Studio)
+
+Open a plain **Command Prompt** — NOT Git Bash. `build.bat` must find MSVC via
+`vswhere.exe`, and `build.sh` will fail on Windows with exit code 3221225785.
+
+```bat
+git submodule update --init --recursive
+cd 3rd\luamake
+compile\build.bat
+cd ..\..\ 
+3rd\luamake\luamake.exe rebuild
+```
+
+Requires: Visual Studio 2019+ (or Build Tools) with C++ workload, and ninja in PATH
+(VS Developer Command Prompt adds it automatically).
+
+Output: `bin/lua-language-server.exe` + DLLs in `bin/`.
+The native build ships MSVC runtime DLLs (`msvcp140.dll`, `vcruntime140.dll`, etc.)
+instead of `libwinpthread-1.dll`.
+
+### Windows binary (cross-compile from Linux, alternative)
 
 **Requirement:** `x86_64-w64-mingw32-gcc` in posix threading model.
 

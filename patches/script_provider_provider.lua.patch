@@ -1,5 +1,5 @@
---- modern-ls/script/provider/provider.lua	2026-06-18 02:02:04.732135197 +0000
-+++ fa-modern-ls-work/script/provider/provider.lua	2026-06-18 02:11:23.240409820 +0000
+--- luals-3.18.2/script/provider/provider.lua	2026-06-20 07:50:37.150827156 +0000
++++ luals-3.18.2-patched/script/provider/provider.lua	2026-06-20 07:50:55.027503755 +0000
 @@ -272,6 +272,12 @@
      ---@async
      function (params)
