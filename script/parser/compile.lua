@@ -442,7 +442,7 @@ local function resolveLongString(finishMark)
             : gsub('\r\n?', '\n')
         stringResult = result
     end
-    if finishMark == ']]' and State.version == 'Lua 5.1' then
+    if finishMark == ']]' and (State.version == 'Lua 5.1' or State.version == 'LuaFA') then
         local nestOffset = sfind(Lua, '[[', start, true)
         if nestOffset and nestOffset < finishOffset then
             fastForwardToken(nestOffset)
@@ -1375,7 +1375,7 @@ local function parseShortString()
                 escs[#escs+1] = escLeft
                 escs[#escs+1] = right
                 escs[#escs+1] = 'byte'
-                if State.version == 'Lua 5.1' then
+                if (State.version == 'Lua 5.1' or State.version == 'LuaFA') then
                     pushError {
                         type    = 'ERR_ESC',
                         start   = left,
@@ -1680,7 +1680,7 @@ local function isKeyWord(word, nextToken)
         return true
     end
     if word == 'goto' then
-        if State.version == 'Lua 5.1' then
+        if (State.version == 'Lua 5.1' or State.version == 'LuaFA') then
             return false
         end
         if State.version == 'LuaJIT' then
@@ -2052,7 +2052,7 @@ local function addDummySelf(node, call)
 end
 
 local function checkAmbiguityCall(call, parenPos)
-    if State.version ~= 'Lua 5.1' then
+    if (State.version ~= 'Lua 5.1' and State.version ~= 'LuaFA') then
         return
     end
     local node = call.node
@@ -3772,7 +3772,7 @@ local function parseLabel()
         block.labels[name] = label
     end
 
-    if State.version == 'Lua 5.1' then
+    if (State.version == 'Lua 5.1' or State.version == 'LuaFA') then
         pushError {
             type   = 'UNSUPPORT_SYMBOL',
             start  = left,

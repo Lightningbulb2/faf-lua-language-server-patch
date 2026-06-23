@@ -1,0 +1,11 @@
+--- luals-3.18.2/script/core/completion/completion.lua	2026-06-20 07:50:37.123065798 +0000
++++ fa-modern-ls-work/script/core/completion/completion.lua	2026-06-23 01:01:51.086877016 +0000
+@@ -489,7 +489,7 @@
+             }
+         end
+     else
+-        if config.get(state.uri, 'Lua.runtime.version') == 'Lua 5.1'
++        if (config.get(state.uri, 'Lua.runtime.version') == 'Lua 5.1' or config.get(state.uri, 'Lua.runtime.version') == 'LuaFA')
+         or config.get(state.uri, 'Lua.runtime.version') == 'LuaJIT' then
+             textEdit.newText = '_G' .. textEdit.newText
+         else

@@ -40,6 +40,81 @@ Only modify the C++ layer when you need new native symbols.
 | `script/core/folding.lua` | Adds `--#region` / `-- #region` folding variants |
 | `script/core/highlight.lua` | Adds `--#region` / `-- #region` to document highlight |
 | `locale/en-us/setting.lua` | Descriptions for the three new settings |
+| `script/core/diagnostics/undefined-field.lua` | Suppress `undefined-field` inside `__init` / `__post_init` function bodies |
+
+---
+
+## FA Class System: `__init` and `inject-field` Diagnostics
+
+### `undefined-field` inside `__init` / `__post_init`
+
+**Symptom:**
+```
+Undefined field `SetupDragHandles`. Lua Diagnostics.(undefined-field)
+(field) UIChatInterface.SetupDragHandles: unknown
+```
+fired on `self:SetupDragHandles()` (or any sibling-method call) inside `__init`.
+
+**Root cause:** When a user annotates `---@param self UIChatInterface` inside `__init`,
+LuaLS checks whether `UIChatInterface` has `SetupDragHandles`. If `UIChatInterface` was
+declared via a standalone `---@class UIChatInterface : Window` somewhere without a full
+`---@field` for every method, those methods appear as `unknown` fields. The class table
+literal itself *does* have all the methods, but LuaLS's generic `T` inference for the
+`ClassUI(Base) { ... }` pattern does not always flow the full method set into a separately-
+declared `---@class` name.
+
+**Fix:** `script/core/diagnostics/undefined-field.lua` — patch adds `isInsideFAInit(src)`
+which walks up the AST: `src → getParentFunction → function.parent (tablefield)` and
+checks whether the tablefield key is `__init` or `__post_init`. When true, the
+`undefined-field` check is skipped entirely for that node.
+
+**Why this scope is safe:** The suppression only fires when the *direct* enclosing
+function is a table field named `__init` or `__post_init`. Normal method bodies, top-
+level code, and anonymous functions are unaffected. The check still fires for genuinely
+missing fields in any other context.
+
+**Patch file:** `patches/script_core_diagnostics_undefined-field.lua.patch`
+
+---
+
+### `inject-field` on engine-typed objects
+
+**Symptom:**
+```
+Fields cannot be injected into the reference of `Bitmap` for `textures`.
+To do so, use `---@class` for `UIChatInterface.DragTL`. Lua Diagnostics.(inject-field)
+```
+
+**Root cause:** FA code routinely stores extra Lua-side state on engine-typed objects:
+```lua
+self.DragTL          = Bitmap(self)       -- DragTL : bitmap_methods (engine type)
+self.DragTL.textures = DragHandleTextures('ul')  -- inject-field fires here
+```
+`DragTL` resolves to `Bitmap` (from the FA stubs). `inject-field` fires because `textures`
+is not declared as a `---@field` on `Bitmap`, and the engine C++ class is closed — you
+cannot add fields to the stub definitions without lying about the engine's actual type.
+
+This is not an error. FA uses this pattern everywhere: caching computed values, attaching
+controller tables, storing child references. The engine does not care; Lua's metatable
+system allows arbitrary field injection on any table. The diagnostic is purely a LuaLS
+type-purity check.
+
+**Fix:** Disable `inject-field` globally for FA files via `meta/3rd/fa/config.lua`:
+```lua
+{
+    key    = 'Lua.diagnostics.disable',
+    action = 'add',
+    value  = 'inject-field',
+},
+```
+
+**Why global disable is correct here:** Unlike `undefined-field` (which is often a real
+typo), `inject-field` on FA code is almost always intentional. The FA engine type stubs
+cover ~700 files; annotating every runtime field injection with `---@class` overrides
+or `---@type` casts would be thousands of lines of noise annotations. The diagnostic
+adds no value in an FA codebase.
+
+**Patch file:** `patches/meta_3rd_fa_config.lua.patch`
 
 ---
 
@@ -154,6 +229,36 @@ Requires: Visual Studio 2019+ (or Build Tools) with C++ workload, and ninja in P
 Output: `bin/lua-language-server.exe` + DLLs in `bin/`.
 The native build ships MSVC runtime DLLs (`msvcp140.dll`, `vcruntime140.dll`, etc.)
 instead of `libwinpthread-1.dll`.
+
+### Linux binary from Windows
+
+Three options, in order of recommendation:
+
+**WSL2** (simplest — follow the Linux build steps inside `wsl`):
+```sh
+# In WSL2 Ubuntu terminal
+git clone --depth=1 --branch 3.18.2 https://github.com/LuaLS/lua-language-server
+cd lua-language-server
+# Apply patches, init submodules, then:
+cd 3rd/luamake && bash compile/build.sh && cd ../..
+./3rd/luamake/luamake rebuild
+# Copy result to Windows: cp bin/lua-language-server /mnt/c/your/path/
+```
+
+**Docker Desktop** (one liner from PowerShell, no WSL2 required):
+```powershell
+docker run --rm -v "${PWD}:/work" -w /work ubuntu:22.04 bash -c "
+    apt-get update -q && apt-get install -y -q gcc g++ ninja-build &&
+    git submodule update --init 3rd/luamake 3rd/bee.lua 3rd/EmmyLuaCodeStyle 3rd/lpeglabel &&
+    cd 3rd/luamake && bash compile/build.sh && cd ../.. &&
+    ./3rd/luamake/luamake rebuild
+"
+# bin/lua-language-server appears on the Windows host via volume mount
+```
+
+**GitHub Actions** (no local Linux at all): push the patched repo and download the
+`linux-x64` artifact from the Actions tab. The existing `.github/workflows/build.yml`
+builds all platforms.
 
 ### Windows binary (cross-compile from Linux, alternative)
 
@@ -295,6 +400,8 @@ Use explicit `.a` file paths in the link command instead.
    - `comment.short` handler in `core/folding.lua` and `core/highlight.lua`
    - `isValid` function in `provider/diagnostic.lua`
    - `textDocument/didOpen` and `textDocument/didChange` in `provider/provider.lua`
+   - `checkUndefinedField` inner function in `core/diagnostics/undefined-field.lua`
+     (specifically: the `if vm.hasDef(src) then return end` block that our FA guard follows)
 4. Run `./3rd/luamake/luamake rebuild` — all tests must pass.
 5. Regenerate `win32-cross-compile.ninja` using the substitutions above.
 6. Rebuild the Windows exe and verify DLL dependencies.

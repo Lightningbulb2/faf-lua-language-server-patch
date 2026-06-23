@@ -1,5 +1,41 @@
 --- luals-3.18.2/script/parser/compile.lua	2026-06-20 07:50:37.142827155 +0000
-+++ luals-3.18.2-patched/script/parser/compile.lua	2026-06-20 07:50:54.712605834 +0000
++++ fa-modern-ls-work/script/parser/compile.lua	2026-06-23 01:01:21.952821526 +0000
+@@ -442,7 +442,7 @@
+             : gsub('\r\n?', '\n')
+         stringResult = result
+     end
+-    if finishMark == ']]' and State.version == 'Lua 5.1' then
++    if finishMark == ']]' and (State.version == 'Lua 5.1' or State.version == 'LuaFA') then
+         local nestOffset = sfind(Lua, '[[', start, true)
+         if nestOffset and nestOffset < finishOffset then
+             fastForwardToken(nestOffset)
+@@ -1375,7 +1375,7 @@
+                 escs[#escs+1] = escLeft
+                 escs[#escs+1] = right
+                 escs[#escs+1] = 'byte'
+-                if State.version == 'Lua 5.1' then
++                if (State.version == 'Lua 5.1' or State.version == 'LuaFA') then
+                     pushError {
+                         type    = 'ERR_ESC',
+                         start   = left,
+@@ -1680,7 +1680,7 @@
+         return true
+     end
+     if word == 'goto' then
+-        if State.version == 'Lua 5.1' then
++        if (State.version == 'Lua 5.1' or State.version == 'LuaFA') then
+             return false
+         end
+         if State.version == 'LuaJIT' then
+@@ -2052,7 +2052,7 @@
+ end
+ 
+ local function checkAmbiguityCall(call, parenPos)
+-    if State.version ~= 'Lua 5.1' then
++    if (State.version ~= 'Lua 5.1' and State.version ~= 'LuaFA') then
+         return
+     end
+     local node = call.node
 @@ -3337,6 +3337,17 @@
  end
  
@@ -18,6 +54,15 @@
      pushActionIntoCurrentChunk(exp)
      if GetToSetMap[exp.type] then
          skipSpace()
+@@ -3761,7 +3772,7 @@
+         block.labels[name] = label
+     end
+ 
+-    if State.version == 'Lua 5.1' then
++    if (State.version == 'Lua 5.1' or State.version == 'LuaFA') then
+         pushError {
+             type   = 'UNSUPPORT_SYMBOL',
+             start  = left,
 @@ -4516,6 +4527,13 @@
                      }
                  end

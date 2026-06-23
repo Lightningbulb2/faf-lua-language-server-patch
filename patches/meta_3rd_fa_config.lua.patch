@@ -1,0 +1,20 @@
+--- luals-3.18.2/meta/3rd/fa/config.lua	2026-06-23 06:44:13.000000000 +0000
++++ fa-modern-ls-work/meta/3rd/fa/config.lua	2026-06-23 07:18:36.270347425 +0000
+@@ -59,6 +59,17 @@
+         action = 'set',
+         value  = true,
+     },
++    -- FAForever: FA code routinely stores extra fields on engine-typed objects
++    -- (Bitmap, Control, Group, etc.) at runtime — e.g. attaching a `textures`
++    -- table to a Bitmap drag handle, or caching computed values on a unit.
++    -- These are legitimate patterns that the engine relies on; they cannot be
++    -- declared in the stub files because the engine C++ type is closed.
++    -- inject-field would fire on every such assignment, so we disable it.
++    {
++        key    = 'Lua.diagnostics.disable',
++        action = 'add',
++        value  = 'inject-field',
++    },
+ }
+ -- FA engine globals: moho is the root C++ engine object;
+ -- arg is the Lua 5.0-style implicit vararg table used by the class system

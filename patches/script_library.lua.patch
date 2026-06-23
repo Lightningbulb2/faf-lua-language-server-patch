@@ -1,0 +1,39 @@
+--- luals-3.18.2/script/library.lua	2026-06-20 07:50:37.138827155 +0000
++++ fa-modern-ls-work/script/library.lua	2026-06-23 01:01:14.635855165 +0000
+@@ -23,7 +23,7 @@
+ local function getDocFormater(uri)
+     local version = config.get(uri, 'Lua.runtime.version')
+     if client.getOption('viewDocument') then
+-        if version == 'Lua 5.1' then
++        if version == 'Lua 5.1' or version == 'LuaFA' then
+             return 'HOVER_NATIVE_DOCUMENT_LUA51'
+         elseif version == 'Lua 5.2' then
+             return 'HOVER_NATIVE_DOCUMENT_LUA52'
+@@ -37,7 +37,7 @@
+             return 'HOVER_NATIVE_DOCUMENT_LUAJIT'
+         end
+     else
+-        if version == 'Lua 5.1' then
++        if version == 'Lua 5.1' or version == 'LuaFA' then
+             return 'HOVER_DOCUMENT_LUA51'
+         elseif version == 'Lua 5.2' then
+             return 'HOVER_DOCUMENT_LUA52'
+@@ -110,11 +110,16 @@
+     middleBuf[#middleBuf+1] = ('PUSH [===[%s]===]'):format(script:sub(last))
+     local middleScript = table.concat(middleBuf, '\n')
+     local version, jit
+-    if config.get(uri, 'Lua.runtime.version') == 'LuaJIT' then
++    local runtimeVer = config.get(uri, 'Lua.runtime.version')
++    if runtimeVer == 'LuaJIT' then
+         version = 5.1
+         jit = true
++    elseif runtimeVer == 'LuaFA' then
++        -- FAForever: FA's custom Lua runtime is based on Lua 5.0/5.1 semantics
++        version = 5.1
++        jit = false
+     else
+-        version = tonumber(config.get(uri, 'Lua.runtime.version'):sub(-3)) or 5.4
++        version = tonumber(runtimeVer:sub(-3)) or 5.4
+         jit = false
+     end
+ 

@@ -1,5 +1,5 @@
 --- luals-3.18.2/script/core/highlight.lua	2026-06-20 07:50:37.130827155 +0000
-+++ luals-3.18.2-patched/script/core/highlight.lua	2026-06-20 07:50:54.708888803 +0000
++++ fa-modern-ls-work/script/core/highlight.lua	2026-06-19 09:24:07.363285811 +0000
 @@ -130,17 +130,22 @@
      end)
  end

@@ -185,6 +185,7 @@ end)
 ---@format disable-next
 local template = {
     ['Lua.runtime.version']                 = Type.String >> 'Lua 5.4' << {
+                                                'LuaFA',
                                                 'Lua 5.1',
                                                 'Lua 5.2',
                                                 'Lua 5.3',

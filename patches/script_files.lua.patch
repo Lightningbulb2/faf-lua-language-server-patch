@@ -1,5 +1,5 @@
 --- luals-3.18.2/script/files.lua	2026-06-20 07:50:37.136349077 +0000
-+++ luals-3.18.2-patched/script/files.lua	2026-06-20 07:50:54.710789261 +0000
++++ fa-modern-ls-work/script/files.lua	2026-06-18 02:08:06.533533887 +0000
 @@ -598,9 +598,10 @@
  
      ---@type brave.param.compile.options

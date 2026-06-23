@@ -1,0 +1,1418 @@
+---@meta
+
+--- these rules are not hardcoded into the engine
+
+---@alias UnitClassification
+---| "RULEUC_Commander"
+---| "RULEUC_CounterMeasure"
+---| "RULEUC_Engineer"
+---| "RULEUC_Factory"
+---| "RULEUC_MilitaryAircraft"
+---| "RULEUC_MilitaryShip"
+---| "RULEUC_MilitarySub"
+---| "RULEUC_MilitaryVehicle"
+---| "RULEUC_MiscSupport"
+---| "RULEUC_Resource"
+---| "RULEUC_Sensor"
+---| "RULEUC_Weapon"
+
+---@alias UnitTechLevel
+---| "RULEUTL_Basic"
+---| "RULEUTL_Advanced"
+---| "RULEUTL_Secret"
+---| "RULEUTL_Experimental"
+--- never implemented
+---| "RULEUTL_Munition"
+
+---@alias EnhancementSlot "Back" | "RCH" | "LCH"
+---@alias TechCategory "TECH1" | "TECH2" | "TECH3" | "EXPERIMENTAL" | 'SUBCOMMANDER' | 'COMMAND'
+---@alias LayerCategory "AIR" | "LAND" | "NAVAL"
+---@alias FactionCategory "UEF" | "CYBRAN" | "AEON" | "SERAPHIM" | "NOMADS"
+---@alias IconBackgroundType "air" | "amph" | "land" | "sea"
+
+---@alias UnitId BlueprintId
+
+
+-- read more here: https://wiki.faforever.com/en/Blueprints
+
+---@class UnitBlueprint: EntityBlueprint
+--- Table keyed with a `ScriptTask`'s `TaskName` that determines the properties of the order button for that ability.
+--- The `OrderInfo.behavior` is overwritten in `orders.lua`.
+---@field Abilities table<string, OrderInfo>
+--- the number of build bots a Cybran builder has
+---@field BuildBotTotal? number
+--- set to an integer that describes the unit's position in the list of build icons
+---@field BuildIconSortPriority integer
+--- the collision x offset used when `SizeSphere` is defined
+---@field CollisionSphereOffsetX? number
+--- the collision y offset used when `SizeSphere` is defined
+---@field CollisionSphereOffsetY? number
+--- the collision z offset used when `SizeSphere` is defined
+---@field CollisionSphereOffsetZ? number
+--- Description of the unit. For example the description for the UEF tech 1 Tank MA12 Striker is
+--- '<LOC uel0201_desc>Medium Tank'. <LOC xxx_desc> is used for localisation which is defined in
+--- the strings_db.lua (in the file loc_XX.scd in the subdirectory \loc\XX; XX is the shortcut for
+--- the localised language). If the localisation part is not set, the description in tags will be
+--- used for any language, which would be "Medium Tank" for this example
+---@field Description UnlocalizedString
+--- used by the XSL0402 (Othuy "lighting storm") script
+---@field Lifetime? number
+--- used by the XSL0402 (Othuy "lighting storm") script
+---@field MaxMoveRange? number
+--- used by the URL0303 (Loyalist) script
+---@field SecondsBeforeChargeKicksIn? number
+--- used by the URL0303 (Loyalist) script
+---@field SecondsBeforeExplosionWhenCharging? number
+--- if defined, the collision shape will be a sphere of this radius using the
+--- `CollisionSphereOffset` species of collision offsets
+---@field SizeSphere? number
+--- Whether this unit uses the mass-based veterancy system
+---@field VetEnabled boolean
+--- Defines threshold when 
+---@field VetThresholds table<number, number>
+--- overrides the veterancy instant heal multiplier per level (which is 0.1)
+---@field VeteranHealingMult? number[]
+--- Additional mass needed to get to the veterancy level of the index in the table, relative to the
+--- cumulative mass of the previous levels (or 0 for level 1)
+--- takes precedence over `VeteranMassMult`
+---@field VeteranMass? number[]
+--- the multiple of the mass cost of the unit needed to advance to the next veterancy level
+--- `VeteranMass` takes precedence.
+---@field VeteranMassMult? number
+--- For ships, defines the bone that's watched to determine if it has sunk to the seabed when
+--- destroyed. Defaults to bone `0`
+---@field WatchBone? Bone
+---
+---@field AI UnitBlueprintAI
+---@field Air UnitBlueprintAir
+---@field Adjacency UnitBlueprintAdjacency|string
+---@field Audio? UnitBlueprintAudio
+---@field Buffs BlueprintBuff[]
+---@field Defense UnitBlueprintDefense
+---@field Display UnitBlueprintDisplay
+---@field Economy UnitBlueprintEconomy
+---@field ExternalFactory? UnitBlueprintExternalFactory
+---@field Enhancements?  table<Enhancement, UnitBlueprintEnhancement>
+---@field EnhancementPresets? table<string, UnitBlueprintEnhancementPreset>
+---@field General UnitBlueprintGeneral
+---@field Intel UnitBlueprintIntel
+---@field Interface UnitBlueprintInterface
+---@field Physics UnitBlueprintPhysics
+---@field Transport? UnitBlueprintTransport
+---@field Veteran? UnitBlueprintVeterancy
+---@field Weapon? WeaponBlueprint[]
+---@field ModWeapon? WeaponBlueprint[] # Used during blueprint loading to mod `Weapon` table
+---@field Wreckage? UnitBlueprintWreckage
+---
+--- Auto-generated unit id from the folder name. When modifying a blueprint, this must be defined to
+--- the blueprint id it is modifying instead.
+---@field BlueprintId UnitId
+--- auto-generated categories table based on `Categories` with each key a value in that array
+---@field CategoriesHash table<CategoryName, true>
+--- auto-generated for unit blueprints generated from a unit with a preset in `EnhancementPresets`
+---@field EnhancementPresetAssigned? UnitBlueprintAssignedEnhancementPreset
+--- auto-generated faction category from `Categories`
+---@field FactionCategory FactionCategory
+--- auto-generated later category from `Categories`
+---@field LayerCategory LayerCategory
+--- auto-generated volume based on `SizeX`, `SizeY`, and `SizeZ`
+---@field SizeVolume number
+--- auto-generated damage effects size based on `SizeVolume`
+---@field SizeDamageEffects number
+--- auto-generated damage effects size scale based on `SizeVolume`
+---@field SizeDamageEffectsScale number
+--- auto-generated tech category from `Categories`
+---@field TechCategory TechCategory
+---
+--- adds categories to `Categories` and then is deleted. Takes precedence over `DelCategories`
+---@field AddCategories? CategoryName[]
+--- removes categories from `Categories` and then is deleted. Overridden by `AddCategories`
+---@field DelCategories? CategoryName[]
+
+
+---@class UnitBlueprintAI
+--- At what angle (to either side) the unit attacks its target after getting an attack order. 
+--- If one of the unit's weapons has a target and has `SlavedToBody = true`, it will rotate when idle and attacking.
+--- Overrides Weapon `SlavedToBody` and `SlavedToBodyArcRange` behavior.
+---@field AttackAngle number
+--- automatically surface to attack ground targets
+---@field AutoSurfaceToAttack boolean
+--- this is the beacon that this unit will create under some circumstances
+---@field BeaconName string
+--- the formation name used for guarding this unit
+---@field GuardFormationName string
+--- how far a unit on patrol will look off it's patrol path to go attack
+---@field GuardRadius number
+--- maximum range from the guarded unit before initiating return
+---@field GuardReturnRadius number
+--- Guard scan range for the unit. The guard scan radius is used by attack move and patrol orders. Through this scanning mechanic the patrolling (or attack moving) unit can find a target to chase. The scanning behavior includes neutral units.
+---
+--- Through a binary patch the guard scan radius is reset to 0 when the unit is not patrolling and/or attack moving:
+--- - https://faforever.zulipchat.com/#narrow/channel/203495-game-development/topic/Guard.20scan.20radius/with/285967051
+--- - https://github.com/FAForever/FA-Binary-Patches/blob/master/section/GuardFix.cpp
+---
+--- Large values can be computationally expensive. This value was partially responsible for games slowing down during large ASF battles. For more information:
+--- - https://github.com/FAForever/fa/pull/3891
+--- - https://github.com/FAForever/fa/pull/3892
+---
+--- The value is automatically populated during blueprint loading to a sensible default if it is not set in the blueprint.
+---@field GuardScanRadius number
+--- initial toggle of automatic behaviors (silo building and auto-assist)
+---@see SetAutoMode
+---@field InitialAutoMode boolean
+--- unit should unpack before firing weapon
+--- Engine sets tracking radius to 1x, calls OnLostTarget when given a move order, and OnGotTarget only when not moving
+---@field NeedUnpack boolean
+--- this muliplier is applied to an air unit's refuel rate when the staging platform is refueling it
+---@field RefuelingMultiplier number
+--- this amount of repair per **second** is offered to refueling air units
+---@field RefuelingRepairAmount number
+--- this amount of energy per **tick** is required to repair the air unit
+---@field RepairConsumeEnergy? number
+--- this amount of mass per **tick** is required to repair the air unit
+---@field RepairConsumeMass? number
+--- if the assist range for the unit is shown if it's selected
+---@field ShowAssistRangeOnSelect? boolean
+--- range for staging platforms to look for planes to repair and refuel when they are on patrol
+---@field StagingPlatformScanRadius? number
+--- Names of bones for other units to try to aim at instead of the default center pos.
+--- The center pos is calculated using Size values but doesn't use CollisionOffset values.
+---@field TargetBones string[]
+
+
+---@class UnitBlueprintAir
+--- timer to automatically initiate landing on ground if idle
+---@field AutoLandTime? number
+--- how much aircraft banks in turns; negative to lean out
+---@field BankFactor? number
+--- true if aircraft banks forward/back as well as sideways
+---@field BankForward? boolean
+--- distance to break off before turning around for another attack run
+---@field BreakOffDistance? number
+--- if the air unit's new target is close-by, it will break off first to increase
+--- the distance between them
+---@field BreakOffIfNearNewTarget? boolean
+--- distance to target to trigger the breaking off attack
+---@field BreakOffTrigger? number
+--- if the unit is capable of flight
+---@field CanFly? boolean
+--- if the unit will change flight direction while circling (like a gunship)
+---@field CirclingDirChange? boolean
+--- how often the unit will change direction while it's circling (like a gunship)
+---@field CirclingDirChangeFrequencySec? number
+--- elevation change ratio of the unit while circling
+---@field CirclingElevationChangeRatio? number
+--- frequency of flight pattern change for unit while circling
+---@field CirclingFlightChangeFrequency? number
+--- maximum circling radius ratio for the unit
+---@field CirclingRadiusChangeMaxRatio? number
+--- minimum circling radius ratio for the unit
+---@field CirclingRadiusChangeMinRatio? number
+--- multiplier to the circling radius when the target is another air unit
+---@field CirclingRadiusVsAirMult? number
+--- adjust turning ability when in circling mode
+---@field CirclingTurnMult? number
+--- maximum combat turn speed of the unit for special maneuvers
+---@field CombatTurnSpeed? number
+--- distance to being engaging enemy target in attack task
+---@field EngageDistance? number
+--- if this unit can fly under water
+---@field FlyInWater? boolean
+--- Whether the unit should hover over the target directly to attack. (Used for cases like the CZAR)
+---@field HoverOverAttack boolean
+--- controller proportional parameter for vertical motion
+---@field KLift number
+--- controller damping parameter for vertical motion
+---@field KLiftDamping number
+--- controller proportional parameter for horizontal motion
+---@field KMove number
+--- Controller damping parameter for horizontal motion
+---@field KMoveDamping number
+--- controller proportional parameter for roll changes
+---@field KRoll number
+--- controller damping parameter for roll changes
+---@field KRollDamping number
+--- controller proportional parameter for heading changes
+---@field KTurn number
+--- controller damping parameter for heading changes
+---@field KTurnDamping number
+--- how much altitude the unit can gain/loose per second
+---@field LiftFactor number
+--- maximum airspeed
+---@field MaxAirspeed number
+--- minimum combat airspeed
+---@field MinAirspeed? number
+--- time to predict ahead for moving targets
+---@field PredictAheadForBombDrop? number
+--- random multiplier applied to break off distance for winged aircraft. Defaults to 1.5
+---@field RandomBreakOffDistanceMult? number
+--- random max time to switch combat state in seconds for winged aircraft. Defaults to 6
+---@field RandomMaxChangeCombatStateTime? number
+--- random min time to switch combat state in seconds for winged aircraft. Defaults to 3
+---@field RandomMinChangeCombatStateTime? number
+--- distance from target at which to start turning to align with it
+---@field StartTurnDistance number
+--- Length of time in seconds allowed for sustained turn before we re-try a different approach. Defaults to 10
+---@field SustainedTurnThreshold? number
+--- additional turning multiplier ability during a tight turn maneuver
+---@field TightTurnMultiplier? number
+--- how heigh the transport will stay when picking up and dropping off units
+---@field TransportHoverHeight? number
+--- regular turn speed of the unit
+---@field TurnSpeed? number
+--- if the unit uses wings for forward flight
+---@field Winged? boolean
+
+
+---@class UnitBlueprintAdjacency
+--- energy consumption reduction bestowed by energy production facilities
+---@field EnergyBuildBonus UnitBlueprintAdjacencyBonus[]
+--- energy consumption (for maintenance e.g. shields, intel, etc.) reduction bestowed by energy
+--- production facilities
+---@field EnergyMaintenanceBonus UnitBlueprintAdjacencyBonus[]
+--- energy production increase bestowed by energy storage facilities
+---@field EnergyProductionBonus UnitBlueprintAdjacencyBonus[]
+--- energy consumption (for weapons, especially artilleries) reduction bestowed by energy production
+--- facilities
+---@field EnergyWeaponBonus UnitBlueprintAdjacencyBonus[]
+--- mass consumption reduction bestowed by mass production facilities
+---@field MassBuildBonus UnitBlueprintAdjacencyBonus[]
+--- mass production increase bestowed by mass storage facilities
+---@field MassProductionBonus UnitBlueprintAdjacencyBonus[]
+
+---@class UnitBlueprintAdjacencyBonus
+---@field Category UnparsedCategory
+---@field Modifier number
+
+
+---@class UnitBlueprintAudio
+---@field Activate? SoundHandle
+---@field ActiveLoop? SoundHandle
+---@field AirUnitWaterImpact? SoundHandle
+---@field AmbientMove? SoundHandle
+---@field AmbientMoveLand? SoundHandle
+---@field AmbientMoveSub? SoundHandle
+---@field AmbientMoveWater? SoundHandle
+---@field AmphibiousFloatingKilledOnLand? SoundHandle
+---@field CaptureLoop? SoundHandle
+---@field Close? SoundHandle
+---@field CommanderArrival? SoundHandle
+---@field Construct? SoundHandle
+---@field ConstructLoop? SoundHandle
+---@field ConstructStart? SoundHandle
+---@field ConstructStop? SoundHandle
+---@field DeathExplosion? SoundHandle
+---@field Deploy? SoundHandle
+---@field Destroyed? SoundHandle
+---@field DoneBeingBuilt? SoundHandle
+---@field EggOpen? SoundHandle
+---@field EggSink? SoundHandle
+---@field EnhanceEnd? SoundHandle
+---@field EnhanceFail? SoundHandle
+---@field EnhanceLoop? SoundHandle
+---@field EnhanceStart? SoundHandle
+---@field EnterWater? SoundHandle
+---@field FootFallGeneric? SoundHandle
+---@field FootFallGenericSeabed? SoundHandle
+---@field HoverKilledOnWater? SoundHandle
+---@field Killed? SoundHandle
+---@field Landed? SoundHandle
+---@field LaunchSat? SoundHandle
+---@field Landing? SoundHandle
+---@field Load? SoundHandle
+---@field MoveArms? SoundHandle
+---@field MoveSharpTurn? SoundHandle
+---@field NuclearLaunchDetected? SoundHandle
+---@field NuclearLaunchDetectedAeon? SoundHandle
+---@field NuclearLaunchDetectedCybran? SoundHandle
+---@field NuclearLaunchDetectedUEF? SoundHandle
+---@field NuclearMissileInterceptedAeon? SoundHandle
+---@field NuclearMissileInterceptedCybran? SoundHandle
+---@field NuclearMissileInterceptedUEF? SoundHandle
+---@field NukeCharge? SoundHandle
+---@field Open? SoundHandle
+---@field Pack? SoundHandle
+---@field ReclaimLoop? SoundHandle
+---@field Refueling? SoundHandle
+---@field ShieldOff? SoundHandle
+---@field ShieldOn? SoundHandle
+---@field Spawn? SoundHandle
+---@field StartCapture? SoundHandle
+---@field StartMove? SoundHandle
+---@field StartMoveAir? SoundHandle
+---@field StartMoveLand? SoundHandle
+---@field StartMoveSub? SoundHandle
+---@field StartMoveWater? SoundHandle
+---@field StartReclaim? SoundHandle
+---@field StopMove? SoundHandle
+---@field StopMoveLand? SoundHandle
+---@field StopMoveSub? SoundHandle
+---@field StopMoveWater? SoundHandle
+---@field SubmergeStart? SoundHandle
+---@field SurfaceStart? SoundHandle
+---@field TakeOff? SoundHandle
+---@field Thruster? SoundHandle
+---@field TransitionLand? SoundHandle
+---@field TransitionWater? SoundHandle
+---@field UISelection? SoundHandle
+---@field Unload? SoundHandle
+---@field Unpack? SoundHandle
+
+
+---@class UnitBlueprintDefense
+--- used by URL0303 (Loyalist) script
+---@field AntiMissile? {AttachBone: Bone, Radius: number, RedirectRateOfFire: number}
+--- the armor type name
+---@field ArmorType ArmorType
+--- starting health value for the unit
+---@field Health number
+--- Default maximum health value for the unit.
+--- (It could be changed by a veterancy buff or enhancement)
+---@field MaxHealth number
+--- Default amount of health to regenerate per second for the unit.
+--- (It could be changed by a veterancy buff or enhancement)
+---@field RegenRate number
+--- if the unit has a shield, the settings are held in a table here
+---@field Shield? UnitBlueprintDefenseShield
+--- if the various threat levels are not to be auto-generated at all for this unit
+---@field SkipDynamicThreatCalculations? boolean
+--- The threat level this unit poses to the enemy.
+--- Used by the engine to calculate the total threat in an area.
+---@field ThreatLevel? number
+---
+--- An auto-generated value representing the threat this unit poses to enemy air units based on
+--- how much anti-air it has.
+--- Different AI's can interpret this value differently (for example, the `SurfaceThreatLevel` may
+--- be added in its calculations).
+---@field AirThreatLevel number
+--- An auto-generated value representing the threat this unit poses to the enemy due to an
+--- "economy score" calculated when the blueprint is loaded.
+--- Different AI's can interpret the result differently.
+---@field EconomyThreatLevel number
+--- An auto-generated value representing the threat this unit poses to the enemy units in the
+--- submarine layer based on how much anti-navy it has.
+--- Different AI's can interpret this value differently.
+---@field SubThreatLevel number
+--- An auto-generated value representing the threat this unit poses to enemy surface units based on
+--- how much direct fire, indirect fire, and bombing capability it has.
+--- Different AI's can interpret this value differently.
+---@field SurfaceThreatLevel number
+
+---@class UnitBlueprintDefenseShield
+--- If this shield only blocks weapons marked with `ArtilleryShieldBlocks`.
+--- Should not be defined with `PersonalBubble`, `PersonalShield`, or `TransportShield`.
+---@field AntiArtilleryShield? boolean
+--- impact effect name in `/lua/effecttemplates.lua`
+---@field ImpactEffects? string
+--- effect mesh to be created for impacts on the shield
+---@field ImpactMesh? FileName
+--- Effect mesh to be created for "big" impacts on the shield. Intended for non-standard shields
+--- of an ellipsoid form, a "big" impact is one where the y component of the impact vector has a
+--- magnitude greater than 1. Such impacts will be repositioned to the top or bottom (depending on
+--- the sign of y) at a hardcoded distance of `9.5` and reoriented.
+--- This is a special case specifically designed to make the CZAR shield work.
+---@field ImpactMeshBig? FileName
+--- the mesh of the shield
+---@field Mesh? FileName
+--- the mesh used in the copy entity in the shield that makes it shine through
+--- the fog of war when visible
+---@field MeshZ? FileName
+--- when `PersonalShield` is set to true, the collision mesh of the shield owner is set to this
+---@field OwnerShieldMesh? FileName
+---@field PassOverkillDamage? any unused but transferred to the entity through the shield spec
+--- If this shield is a personal bubble.
+--- Should not be defined with `AntiArtilleryShield`, `PersonalShield`, or `TransportShield`.
+---@field PersonalBubble? boolean
+--- If the shield is a "personal shield" as opposed to a "dome shield" meant to protect other units.
+--- Personal shields change the collision mesh of the unit (instead of creating a new shield entity)
+--- and handle the damage there (this also changes the behavior of stuff like damage spilling and
+--- stunning).
+--- Should not be defined with `AntiArtilleryShield`, `PersonalBubble`, or `TransportShield`.
+---@field PersonalShield? boolean
+--- How much buildpower is required to provide 1x of the shield's regen rate.
+--- The cost of assisting a shield is `repairCostRate / RegenAssistMult`,
+--- where repairCostRate is determined by Unit:UpdateConsumptionValues
+---@field RegenAssistMult? number
+--- The amount of time the shield takes to come back online when its disabled due to insufficient
+--- energy. Defaults to `10` in the shield spec.
+---@field ShieldEnergyDrainRechargeTime? number
+--- The maximum health of the shield. Defaults to `250` in the shield spec.
+---@field ShieldMaxHealth? number
+--- The time it takes for the shield to come online once completely depleted by damage.
+--- Treated as `10` when absent and `5` when `false` for the shield spec.
+---@field ShieldRechargeTime? number
+--- The amount of health the shield regenerates per second when it's not taking damage.
+--- Defaults to `1` in the shield spec (and treated the same when `false`).
+---@field ShieldRegenRate? number | false
+--- The delay after getting hit by ordinance the shield starts recharging.
+--- Defaults to `5` in the shield spec.
+---@field ShieldRegenStartTime? number
+--- The radius of the shield (converted to `Size` for the final shield spec, where it defaults to
+--- `10` as a default if absent from this blueprint)
+---@field ShieldSize? number
+--- How much of the damage applied to the shield will also be applied to others overlapping this
+--- one. Treated as `0.15` when absent from the shield spec.
+---@field ShieldSpillOverDamageMod? number
+--- How many units the shield is moved up (or down if negative) from center.
+--- Defaults to `-1` in the shield spec.
+---@field ShieldVerticalOffset? number
+--- If the shield stays on when its owning unit is attached to a transport.
+--- Defaults to `false` in the shield spec.
+---@field SkipAttachmentCheck? boolean
+--- If this shield is one that unequivocally protects all attached units.
+--- Should not be defined with `AntiArtilleryShield`, `PersonalBubble`, or `PersonalShield`.
+---@field TransportShield? boolean
+
+---@class UnitBlueprintBlinkingLightsData
+---@field BLBone Bone
+---@field BlOffsetX number      # defaults to 0
+---@field BLOffsetY number      # defaults to 0
+---@field BLOffsetZ number      # defaults to 0
+---@field BLScale number        # defaults to 1
+
+---@class UnitBlueprintBlinkingLightsFx
+---@field Green string          # Path to emitter, usually '/effects/emitters/light_green_03_emit.bp'
+---@field Red string            # Path to emitter, usually '/effects/emitters/light_red_03_emit.bp'
+---@field Yellow? string         # Path to emitter, usually '/effects/emitters/light_yellow_02_emit.bp'
+
+---@class UnitBlueprintDisplay
+--- Used by the Aeon build animation for a custom mercury pool
+---@field AeonMercuryPool? string
+--- Used by the Aeon build animation to offset the mercury pool
+---@field AeonMercuryPoolOffset? number
+--- Backup abilities shown by the unit view, if the detected ones don't cover them.
+---@field Abilities UnlocalizedString[]
+--- names that the AI can use to name the unit, provided the AI is programmed to do this
+---@field AINames UnlocalizedString[]
+--- The animation that is played when the unit is completed
+--- (seen in experimentals, e.g. Megalith - XRL0403)
+---@field AnimationActivate FileName
+--- Animation that is played when the unit is building
+---@field AnimationBuild? FileName
+--- How fast the build animation plays. Treated as `1` if absent.
+---@field AnimationBuildRate? number
+--- The table of animations shown at death. One will be randomly pulled.
+---@field AnimationDeath UnitBlueprintAnimationDeath[]
+--- used by the XRB2309 (submerged HARMS) script
+---@field AnimationDeploy? FileName
+--- factories will play this animation on land units they build
+---@field AnimationFinishBuildLand? FileName
+--- used by several units' scripts
+---@field AnimationIdle? FileName
+--- used by several transports' scripts
+---@field AnimationLand? FileName
+--- unused but present on the Cybran builder bot
+---@field AnimationLoop? FileName
+--- Used by various units in various circumstances to open something. Base game path is typically `'/units/UnitID/UnitID_aopen.sca'` but mods should use their mod path `'/mods/ModName/...'`.
+---@field AnimationOpen? FileName
+--- The animation that is played when the unit is done building
+---@field AnimationPermOpen? FileName
+--- the animation that is played when the unit surfaces
+---@field AnimationSurface? FileName
+--- used by several transports' scripts
+---@field AnimationTakeOff? FileName
+--- used by the URS0201 (Salem class destroyer) script
+---@field AnimationTransform? FileName
+--- the animation that is played when the unit is upgrading
+---@field AnimationUpgrade FileName
+--- A table of animations to use while upgrading, depending on the unit it is upgrading to.
+---@field AnimationUpgradeTable? table<UnitId, FileName>
+--- Full path to file. Base game path is typically `'/units/UnitID/UnitID_awalk.sca'` but mods should use their mod path `'/mods/ModName/...'`.
+---@field AnimationWalk? FileName
+--- controls the speed of the animation. Adjusting this number can cause or prevent "skating"
+---@field AnimationWalkRate number
+--- used by UEF and Cybran construction units to animate their hover transition
+---@field AnimationWater? FileName
+---@field AttackReticleSize? number unused
+---@field BlinkingLights UnitBlueprintBlinkingLightsData[]
+---@field BlinkingLightsFx UnitBlueprintBlinkingLightsFx
+--- the bone on factories where units are built
+---@field BuildAttachBone? Bone
+--- used while cloaked
+---@field CloakMeshBlueprint? FileName
+--- used by the XSS0304 and XSS0203 (Seraphim T3 and T1 sub) scripts
+---@field CannonOpenAnimation? FileName
+---@field DamageEffects? UnitBlueprintDamageEffect[]
+--- overrides the rolloff point's orientation
+---@field ForcedBuildSpin? number
+--- if the lifebar of the unit is always hidden
+---@field HideLifebars? boolean
+--- Effects displayed when the unit is idle (e.g. glow beneath hovering units), multiple layers can
+--- be used. The key should be the name of the layer where effects should be displayed
+---@field IdleEffects table<Layer, UnitBlueprintEffects>
+--- used by the URS0201 (Salem class destroyer) script 
+---@field LandAnimationDeath? {Animation: FileName, Weight: number}
+--- effects displayed when the unit changes layers (e.g. when an aircraft lands or takes off)
+--- Defines for what transition the effects are created. 'string' is composed of 2 names of layers,
+--- first one is the old layer and the second is the new one. E.g. effects are needed for an
+--- aircraft landing, so the old layer is Air and the new one is Land, then the 'string' will be
+--- airLand (LandAir would be the opposite - take off). Note: there is NO space between layer names
+---@field LayerChangeEffects table<LayerChangeType, UnitBlueprintEffects>
+--- used by the XSB1102 (Seraphim hydrocarbon powerplant) script
+---@field LoopingAnimation? FileName
+---@field MaxRockSpeed? number
+---@field Mesh MeshBlueprint
+---@field MeshBlueprint FileName
+--- used for the wreackge if `Wreckage.UseCustomMesh` is set
+---@field MeshBlueprintWrecked? FileName
+--- used by the XSB2401 (Yolona Oss) script
+---@field MissileBone? Bone
+---@field MotionChangeEffects table<MotionChangeType, UnitBlueprintEffects>
+--- Effects displayed during movement of the unit. Key should be Name of the layer for which the
+--- effects are displayed.
+---@field MovementEffects table<Layer, UnitBlueprintEffects>
+---@field PlaceholderMeshName string
+---@field ShowBuildEffectsDuringUpgrade? boolean
+---@field SpawnRandomRotation boolean
+---@field Tarmacs UnitBlueprintTarmac[]
+---@field TerrainMeshes? table<TerrainStyle, FileName>
+---@field TransportAnimation? FileName
+---@field TransportAnimationSpeed? number
+---@field TransportDropAnimation? FileName
+---@field TransportDropAnimationSpeed? number
+--- This is the scale of the unit size. This will only change the visual size, when changing
+--- this the collision hitbox should be adapted under `SizeX`, `SizeY`, and `SizeZ` as well.
+---@field UniformScale number
+---@field WarpInEffect? UnitBlueprintWarpInEffect
+--- used by the URS0201 (Salem class destroyer) script 
+---@field WaterAnimationDeath? {}                   
+---
+--- auto-generated field that points to the mesh to use while building
+---@field BuildMeshBlueprint BlueprintId
+
+---@class UnitBlueprintAnimationDeath
+--- Full path of the animation file. Typically `'/units/UnitID/UnitID_ADeath.sca'` but mods should use their mod path `'/mods/ModName/...'`.
+--- The animation will be removed in blueprint postprocessing if this file does not exist.
+---@field Animation FileName
+--- the maximum speed this animation is played at
+---@field AnimationRateMax number
+--- the minimum speed this animation is played at
+---@field AnimationRateMin number
+---@field Mesh? FileName
+---@field HitBox? HitBox
+--- this number affects how often a death animation is used when there are more than one. This value is relative rather than absolute
+---@field Weight? number
+
+---@class UnitBlueprintDamageEffect
+---@field Bone Bone
+---@field OffsetX number
+---@field OffsetY number
+---@field OffsetZ number
+
+---@class UnitBlueprintEffectBase
+--- names of bones to which the effect will be attached
+---@field Bones string[]
+--- controls position of the effect relatively to the bone it's attached to. n1, n2 and n3 are respectively x, y and z coordinates (0, 0, 0 by default)
+---@field Offset? Vector
+--- controls scale of the effect (1 by default)
+---@field Scale? number
+--- Defines what effect will be used
+---@field Type? string
+
+---@class UnitBlueprintEffects
+---@field Effects UnitBlueprintEffect[]
+
+---@class UnitBlueprintMovementEffects : UnitBlueprintEffects
+--- Contrails shown behind aircraft (in SupCom usually behind tips of wings).
+--- Bones are Names of the bones which will have the contrails attached
+---@field Contrails? UnitBlueprintContrails
+--- for units with treads or wheels, e.g. tanks, UEF engineers
+---@field Treads? UnitBlueprintTreads
+---@field BeamExhaust? UnitBlueprintBeamExhaustEffect
+---@field CameraShake? UnitBlueprintCameraShakeEffect
+---@field Footfall? UnitBlueprintEffect[]
+---@field Air? UnitBlueprintEffects
+---@field Land? UnitBlueprintEffects
+---@field Orbital? UnitBlueprintEffects
+---@field Seabed? UnitBlueprintEffects
+---@field Sub? UnitBlueprintEffects
+---@field Water? UnitBlueprintEffects
+
+---@class UnitBlueprintContrails
+---@field ZOffset? number
+---@field Bones string[]
+
+---@class UnitBlueprintTreads
+--- if the treads scrolls when the unit is moving
+---@field ScrollTreads boolean
+--- The secondary tread scroller parameter. Treated as `0.2` when absent.
+---@field ScrollMultiplier? number
+---@field TreadMarks UnitBlueprintTreadMarks
+
+---@class UnitBlueprintTreadMarks
+--- name of the bone to which the tread marks will be attached
+---@field BoneName? string
+---@field TreadLifeTime? number
+--- name of the tread marks to be used (e.g. light tank might have different than a heavier one)
+---@field TreadMarks string
+--- defines how often should they be created on the ground
+---@field TreadMarksInterval? number
+--- defines how big/stretched should the tread marks be on the X axis
+---@field TreadMarksSizeX number
+--- defines how big/stretched should the tread marks be on the Z axis
+---@field TreadMarksSizeZ number
+--- defines the offset of tread marks to bone defined in `BoneName` as a vector
+---@field TreadOffset Vector
+
+---@alias UnitBlueprintEffect
+---| UnitBlueprintBeamExhaustEffect
+---| UnitBlueprintCameraShakeEffect
+---| UnitBlueprintDamagingEffect
+---| UnitBlueprintFootfallEffect
+
+---@class UnitBlueprintBeamExhaustEffect : UnitBlueprintEffectBase
+---@field Cruise boolean
+---@field Idle boolean
+---@field Landed boolean
+
+---@class UnitBlueprintCameraShakeEffect : UnitBlueprintEffectBase
+---@field Interval number
+---@field MaxShakeEpicenter number
+---@field MinShakeAtRadius number
+---@field Radius number
+
+---@class UnitBlueprintFootfallEffect : UnitBlueprintEffectBase
+---@field FootBone Bone
+---@field HipBone Bone
+---@field KneeBone Bone
+---@field MaxFootFall? number
+---@field StraightLegs? boolean
+---@field Tread? UnitBlueprintTreadMarks
+
+---@class UnitBlueprintDamagingEffect : UnitBlueprintEffectBase
+---@field Amount number
+---@field DamageFriendly boolean
+---@field Radius number
+
+---@class UnitBlueprintWarpInEffect
+---@field HideBones Bone[]
+---@field PhaseShieldMesh FileName
+
+
+---@class UnitBlueprintTarmac
+---@field Albedo FileName
+---@field Albedo2 FileName
+---@field DeathLifetime number
+---@field FadeOut number
+---@field Length number
+---@field Normal FileName
+---@field Glow FileName
+---@field Orientations number[]
+---@field RemoveWhenDead boolean
+---@field Width number
+
+
+---@class UnitBlueprintEconomy
+---@field AdjacentEnergyProductionMod? number
+---@field AdjacentMassProductionMod? number
+---@field AdjacentStructureEnergyMod? number
+--- Defines what units can be built. Used by the engine.
+---@field BuildableCategory UnparsedCategory[]
+--- Defines what buildable units can only be produced through upgrading. Used in Lua.
+---@field UpgradeOnlyCategory UnparsedCategory[]
+--- energy cost to build this unit
+---@field BuildCostEnergy number
+--- mass cost to build this unit
+---@field BuildCostMass number
+--- how fast this unit build other units
+---@field BuildRate number
+--- the needed time when producing this unit; this is only a factor of time,
+--- not the real time to produce the unit
+---@field BuildTime number
+--- present in UEF engineering drones
+---@field BuildRadius? number
+--- What unit spawns out of the egg. Used by `CConstructionEggUnit` (Megalith's crab eggs)
+---@field BuildUnit? UnitId
+--- present in Cybran build drones
+---@field ConsumptionPerSecondEnergy? number
+--- present in Cybran build drones
+---@field ConsumptionPerSecondMass? number
+--- the cost of upgrading will subtracting the base unit's cost
+---@field DifferentialUpgradeCostCalculation? boolean
+---@field EngineeringPods? {CreateWithUnit: boolean, PodAttachpoint: Bone, PodName: string, PodUnitID: UnitId}
+--- default rally point X for the factory
+---@field InitialRallyX number
+--- default rally point Z for the factory
+---@field InitialRallyZ number
+--- Total energy drain when changing scrying locations. Used by XAB3301 (Eye of Rhianne)
+---@field InitialRemoteViewingEnergyDrain? number
+--- amount that define which amount of energy the unit is consuming per second; Used for Shields
+---@field MaintenanceConsumptionPerSecondEnergy? number
+---@field MaintenanceConsumptionPerSecondMass? number
+--- Maximum build range of the unit. The target must be within this range before the
+--- builder can perform operation.
+---@field MaxBuildDistance number
+--- used by XAB1401 (Paragon) script
+---@field MaxEnergy? number
+--- used by XAB1401 (Paragon) script
+---@field MaxMass? number
+---@field MinBuildTime number
+---@field MinConsumptionPerSecondEnergy? number
+---@field MinConsumptionPerSecondMass? number
+--- produces resource naturally and does not consume anything
+---@field NaturalProducer boolean
+--- builder needs to face target before it can build/repair
+---@field NeedToFaceTargetToBuild boolean
+--- amount of energy produced per second
+---@field ProductionPerSecondEnergy number
+--- amount of mass produced per second
+---@field ProductionPerSecondMass number
+--- You will get a bonus if you rebuild this unit over the wreckage of these wreckages.
+--- Multible BonusID's can be added.
+---@field RebuildBonusIds? string[]
+--- The fraction of this unit's mass cost that is contributed to the work progress of the unit it is
+--- assisting. Once divided by that unit's mass cost, this is the percentage of the progress bar it
+--- completes, by mass. The smallest of this result and the one for energy is actually used.
+---@field SacrificeMassMult? number
+--- The fraction of this unit's energy cost that is contributed to the work progress of the unit it
+--- is assisting. Once divided by that unit's energy cost, this is the percentage of the progress
+--- bar it completes, by energy. The smallest of this result and the one for mass is actually used.
+---@field SacrificeEnergyMult? number
+--- Energy storage capacity provided by this unit. This gets added to the main resource pool and is
+--- not stored in the unit itself.
+---@field StorageEnergy? number
+--- Mass storage capacity provided by this unit. This gets added to the main resource pool and is
+--- not stored in the unit itself.
+---@field StorageMass? number
+--- Once multiplied by the teleport energy modifier, is the baseamount contributed to the total energy
+--- cost of teleporting due to energy costs. Note that the teleport mass cost also ends up
+--- contributing to the total energy cost as well.
+--- Treated as the unit's energy build cost when absent.
+---@field TeleportEnergyCost? number
+--- Multiplied to the unit's teleport energy cost before being added to the total energy cost of
+--- teleporting. Treated as `0.01` when absent.
+---@field TeleportEnergyMod? number
+--- Once multiplied by the teleport mass modifier, is the amount contributed to the total energy
+--- cost of teleporting due to mass costs. The base teleport energy cost is then also added.
+--- Treated as the unit's mass build cost when absent.
+---@field TeleportMassCost? number
+--- Multiplied to the unit's teleport mass cost before being added to the total energy cost of
+--- teleporting. Treated as `0.01` when absent.
+---@field TeleportMassMod? number
+--- Multiplied by the resulting total energy cost of the teleport to get its required time.
+--- Treated as `0.01` when absent.
+---@see TeleportDelay For an additional flat delay that also delays teleport FX showing at the destination.
+---@field TeleportTimeMod? number
+--- Whether to use the new distance-based teleport cost calculation method, or revert to the old unit cost based method.
+---@field UseVariableTeleportCosts? boolean
+
+---@class UnitBlueprintExternalFactory
+---@field SelectionSizeX? number
+---@field SelectionSizeZ? number
+---@field SelectionCenterOffsetX? number
+---@field SelectionCenterOffsetY? number
+---@field SelectionCenterOffsetZ? number
+---@field SelectionMeshScaleX? number
+---@field SelectionMeshScaleY? number
+---@field SelectionMeshScaleZ? number
+---@field UniformScale? number
+
+---@class UnitBlueprintEnhancements : table<Enhancement, UnitBlueprintEnhancement>
+---@field Slots table<EnhancementSlot, {name: UnlocalizedString, x: number, y: number}>
+
+---@class UnitBlueprintEnhancementPreset
+---@field BuildIconSortPriority number
+---@field Description UnlocalizedString
+---@field Enhancements Enhancement[]
+---@field HelpText UnlocalizedString
+---@field SortCategory CategoryName
+--- If set to false, the preset's teleport cost isn't adjusted to the base unit's cost.
+--- (Which is done to prevent teleport presets from being more expensive to teleport) 
+---@field TeleportNoCostAdjustment? boolean
+---@field UnitName UnlocalizedString
+
+---@class UnitBlueprintAssignedEnhancementPreset
+---@field Name string
+---@field Enhancements Enhancement[]
+---@field BaseBlueprintId UnitId
+
+---@class UnitBlueprintEnhancement
+--- Cost of the enhancement in energy
+---@field BuildCostEnergy number
+--- Cost of the enhancement in mass
+---@field BuildCostMass number
+--- Time it takes to build the enhancement
+---@field BuildTime number
+--- Adds buildable enhancements to the unit
+---@field BuildableCategoryAdds string
+--- Unit icon to use for the enhancement
+---@field Icon string
+--- Name of the enhancement
+---@field Name string|number
+--- Energy Production of the enhancement
+---@field ProductionPerSecondEnergy number
+--- Mass Production of the enhancement
+---@field ProductionPerSecondMass number
+---
+---
+--- New Build Rate of the unit
+---@field NewBuildRate number
+--- New Health of the unit
+---@field NewHealth number
+--- New Regen Rate of the unit
+---@field NewRegenRate number
+--- Gun Damage Enhancement
+---@field ZephyrDamageMod number
+--- New Max Radius of the unit
+---@field NewMaxRadius number
+--- New Rate of Fire of the unit. This is How fast the Gun shoots
+---@field NewRateOfFire number
+--- New Damage Radius of the unit
+---@field NewDamageRadius number
+---
+--- New Omni Radius of the unit
+---@field NewOmniRadius number
+--- New Vision Radius of the unit
+---@field NewVisionRadius number
+--- New Sonar Radius of the unit
+---@field NewSonarRadius number
+---
+--- Show bones of the unit
+---@field ShowBones? Bone[]
+--- Hide bones of the unit
+---@field HideBones? Bone[]
+---
+--- Slot of the enhancement
+---@field Slot EnhancementSlot
+---
+--- Upgrade effect bones of the unit
+---@field UpgradeEffectBones? Bone[]
+--- Upgrade unit ambient bones of the unit
+---@field UpgradeUnitAmbientBones? Bone[]
+---
+--- Prerequisite enhancement
+---@field Prerequisite? Enhancement
+--- Remove enhancements
+---@field RemoveEnhancements Enhancement[]
+---
+--- Impact effects of the enhancement
+---@field ImpactEffects string
+--- 
+--- Maintenance energy consumption of the enhancement
+---@field MaintenanceConsumptionPerSecondEnergy number
+---
+---
+--- Owner shield mesh blueprint
+---@field OwnerShieldMesh string
+--- Personal shiled toggle
+---@field PersonalShield boolean
+--- How much buildpower is required to provide 1x of the shield's regen rate.
+--- The cost of assisting a shield is `repairCostRate / RegenAssistMult`,
+--- where repairCostRate is determined by Unit:UpdateConsumptionValues
+---@field RegenAssistMult number
+--- The amount of time the shield takes to come back online when its disabled due to insufficient energy. Defaults to 10 in the shield spec.
+---@field ShieldEnergyDrainRechargeTime number
+--- The maximum health of the shield. Defaults to 250 in the shield spec.
+---@field ShieldMaxHealth number
+--- The time it takes for the shield to come online once completely depleted by damage. Treated as 10 when absent and 5 when false for the shield spec.
+---@field ShieldRechargeTime number
+---The amount of health the shield regenerates per second when it's not taking damage. Defaults to 1 in the shield spec (and treated the same when false).
+---@field ShieldRegenRate number
+---The delay after getting hit by ordinance the shield starts recharging. Defaults to 5 in the shield spec.
+---@field ShieldRegenStartTime number
+---The radius of the shield (converted to Size for the final shield spec, where it defaults to 10 as a default if absent from this blueprint)
+---@field ShieldSize number
+---How much of the damage applied to the shield will also be applied to others overlapping this one. Treated as 0.15 when absent from the shield spec.
+---@field ShieldSpillOverDamageMod number
+--- How many units the shield is moved up (or down if negative) from center. Defaults to -1 in the shield spec.
+---@field ShieldVerticalOffset number
+--- Shield mesh effect
+---@field Mesh string
+--- Shield mesh Z blueprint
+---@field MeshZ string
+--- Shield Enhancement number (Unknown)
+---@field ShieldEnhancement number
+---
+--- Impact Mesh of the enhancement
+---@field ImpactMesh string
+---
+---
+--- Add Health to the unit
+---@field ACUAddHealth number
+--- Max Health of the unit
+---@field MaxHealthFactor number
+--- Radius Increase of RegenAura
+---@field Radius number
+---
+--- Max Regen of SCU
+---@field RegenCeilingSCU number
+--- Max Regen of T1 
+---@field RegenCeilingT1 number
+--- Max Regen of T2
+---@field RegenCeilingT2 number
+--- Max Regen of T3
+---@field RegenCeilingT3 number
+--- Max Regen of T4
+---@field RegenCeilingT4 number
+--- Base Regen
+---@field RegenFloor number
+--- Regen Per Second. How much health the unit regenerates per second
+--- This is a multiplier of the base regen
+---@field RegenPerSecond number
+--- Which unit categories are buffed by the aura
+---@field UnitCategory UnparsedCategory
+
+
+
+
+
+---@class UnitBlueprintGeneral
+---@field BuildBones? BuildBones
+---@field BuildBonesAlt1 BuildBones
+--- Cost of the unit towards unit cap (default is 1.0)
+---@field CapCost number
+---@field Category string
+---@field Classification UnitClassification
+--- command capability flags for this unit
+---@field CommandCaps table<CommandCap, boolean>
+---@field ExcludeFromVeterancy? boolean
+--- Faction the unit belongs to.
+---@field FactionName FactionName
+---@field FractionThreshold? number
+--- indicates the background for the build icon
+---@field Icon IconBackgroundType
+--- if the unit always self-destructs immediately, skipping any countdown sequence
+---@field InstantDeathOnSelfDestruct? boolean
+---@field OrderOverrides table<CommandCap, OrderInfo>
+--- indicates unit has it's own avatar button in the quick select interface,
+--- and it's sorting priority
+---@field QuickSelectPriority integer
+--- how long to wait before rolling the unit off the factory
+---@field RolloffDelay? number
+--- Determines if a unit will be selected in a drag selection, only the highest priority units will
+--- get selected (1 is highest).
+---@field SelectionPriority integer
+---@field TarmacDecal? any unused
+---@field TarmacGlowDecal? any unused
+--- defines the tech level used for display purposes
+---@field TechLevel UnitTechLevel
+--- Extra time taken to teleport before other teleport time calculations. Defaults to 0 seconds.
+--- If `UseVariableTeleportCosts` is false, then this also delays teleport FX appearing at the destination.
+--- If `UseVariableTeleportCosts` is true, then destination FX appear after 0.4x the total teleport time.
+---@see TeleportTimeMod For an energy-scaling teleport time that does not delay teleport FX at the destination.
+---@field TeleportDelay? number
+--- if present, adds a flat energy cost to the "teleport" ability. Defaults to 150000 energy. Only applies when `UseVariableTeleportCosts` is true.
+---@field TeleportFlatEnergyCost? number
+--- Only applies when `UseVariableTeleportCosts` is true. Defaults to 2.500.000 energy.
+---@field TeleportMaximumEnergyCost? number
+--- Only applies when `UseVariableTeleportCosts` is true. Defaults to 50 seconds.
+---@field TeleportMaximumDuration? number
+--- table of toggle capabilities available for this unit
+---@field ToggleCaps table<ToggleCap, boolean>
+--- table of boolean toggles set/got with SetStatByCallback/GetStat
+---@field StatToggles table<string, table>
+--- name of the unit
+---@field UnitName UnlocalizedString
+---@field UnitWeight number unused
+--- what unit, if any, this unit can be upgraded from
+---@field UpgradesFrom? UnitId
+--- what unit, if any, this unit can be upgraded to
+---@field UpgradesTo? UnitId
+--- the base unit from which all units in this upgrade chain can be upgraded from. If this field is lacking then the unit may refuse to upgrade even when `UpgradesFrom` and `UpgradesTo` are set
+---@field UpgradesFromBase? UnitId
+---
+--- auto-generated field from `CommandCaps`
+---@field CommandCapsHash table<CommandCap, true>
+
+---@class BuildBones
+--- the bone that gets aimed that what the unit is building
+---@field AimBone Bone
+--- used by Cybran
+---@field BuildAttachBone? Bone
+--- used by Seraphim
+---@field BuildEffectBones? Bone[]
+---@field PitchBone Bone
+---@field YawBone Bone
+
+---@class UnitIntelStatus
+---@field RechargeThread thread?
+---@field AllIntel table<IntelType, boolean>
+---@field AllIntelRecharging table<IntelType, boolean>
+---@field AllIntelMaintenanceFree table<IntelType, boolean>
+---@field AllIntelDisabledByEvent table<IntelType, table<string, boolean>>
+
+---@class UnitBlueprintIntel
+--- intel status that is deep-copied for each unit instance
+---@field State? UnitIntelStatus
+--- intel types set to true in this table cannot be disabled
+---@field ActiveIntel? table<IntelType, boolean>
+--- single unit cloaking
+---@field Cloak boolean
+--- how far our cloaking goes
+---@field CloakFieldRadius number
+--- The intel is free. Without this, the unit will try drain energy for its
+--- intelligence (radar, sonar, etc) and turn off if you run out.
+---@field FreeIntel boolean
+--- Used by XSA0101 (Seraphim T1 air scout) for how long the after-crash vison remains
+---@field IntelDurationOnDeath? number
+--- how far we create fake blips
+---@field JamRadius { Max: number, Min: number }
+--- How many blips a jammer produces. Maximum 255
+---@field JammerBlips number
+--- Vision radius when powered on. Used by XRB3301 (Soothsayer).
+---@field MaxVisionRadius? number
+--- Vision radius when powered off. Used by XRB3301 (Soothsayer).
+---@field MinVisionRadius? number
+--- how far our omni coverage goes
+---@field OmniRadius? number
+--- how far our radar coverage goes
+---@field RadarRadius? number
+--- Single unit radar stealth
+---@field RadarStealth? boolean
+---@field RadarStealthField? boolean
+--- how far our radar stealth goes
+---@field RadarStealthFieldRadius? number
+--- how long until this unit turns back on when you run out of power
+---@field ReactivateTime? number
+--- used by XAB3301 (Eye of Rianne) for its scrying vision radius
+---@field RemoteViewingRadius? number
+--- Show intel radius of unit if selected
+---@field ShowIntelOnSelect boolean
+---@field Sonar? boolean
+--- how far radar coverage goes
+---@field SonarRadius number
+--- single unit sonar stealth
+---@field SonarStealth boolean
+--- how far our sonar stealth goes
+---@field SonarStealthFieldRadius number
+--- how far off displace blips
+---@field SpoofRadius { Max: number, Min: number }
+--- used by XSL0101 (Selen) to define how it needs to sit still while its cloak is enabled for it to work
+---@field StealthWaitTime? number
+--- how far the unit can see above water and land
+---@field VisionRadius number
+--- used by XSA0101 (Seraphim T1 air scout) to set its vision radius when it crashes
+---@field VisionRadiusOnDeath? number
+--- how far the unit can see underwater
+---@field WaterVisionRadius number
+
+---@class UnitBlueprintInterface
+---@field HelpText string
+---@field Selectable? boolean
+
+
+---@class UnitBlueprintPhysics
+--- Forces terrain alignment for structures
+---@field AltitudeToTerrain boolean
+--- forces terrain alignment for structures
+---@field AlwaysAlignToTerrain boolean
+--- alternate method of locomotion
+---@field AltMotionType? UnitMotionType
+--- preferred attack height when attacking ground targets (used by dive bombers)
+---@field AttackElevation number
+--- distance that the unit will just back up if it is easier to do so
+---@field BackUpDistance number
+--- how much the unit banks in corners (negative to lean outwards)
+---@field BankingSlope number
+--- unit may be built on these layers (only applies to structures)
+---@field BuildOnLayerCaps table<LayerEnum, boolean>
+--- special build restrictions (mass deposit, thermal vent, etc)
+---@field BuildRestriction UnitBuildRestriction
+--- acceleration to allow unit to catch up to the target when it starts to drift
+---@field CatchUpAcc number
+--- unknown if significant in `Physics`
+---@field CollisionOffsetX? number
+--- if a naval factory uses the special rolloff point computation
+---@field ComputeRollOffPoint? boolean
+---@field DragCoefficient number unused
+--- preferred height above (negative for below) land or water surface
+---@field Elevation number
+--- if true, terrain under building's skirt will be flattened
+---@field FlattenSkirt boolean
+---@field Footprint FootprintBlueprint
+--- unit fuels up at this rate per second. Required for air staging to undock automatically.
+---@field FuelRechargeRate number
+--- unit has fuel for this number of seconds. Required for air staging to undock automatically.
+---@field FuelUseTime number
+--- How much the collision model is offset from the ground. Used to make aircraft land properly.
+---@field GroundCollisionOffset? number
+--- Used in combination with `FlattenSkirt` to guarantee the result is completely horizontal
+---@field HorizontalSkirt boolean
+--- used by XSL0305 (Seraphim sniper bot) script as the speed multiplier during the reload of the alternate sniper mode
+--- also used by URS0201 (Salem class destroyer) script as the speed multiplier when walking on land
+---@field LandSpeedMultiplier? number
+--- an offset to the layer change height used during the transition between seabed/water and land
+---@field LayerChangeOffsetHeight number
+--- transition time in seconds when going from water/land and land/water
+---@field LayerTransitionDuration number
+--- maximum acceleration for the unit
+---@field MaxAcceleration number
+--- maximum braking acceleration for the unit
+---@field MaxBrake number
+--- maximum elevation difference across skirt for build site
+---@field MaxGroundVariation number
+--- maximum speed for the unit
+---@field MaxSpeed number
+--- maximum speed for the unit in reverse. Defaults to the same value as MaxSpeed
+---@field MaxSpeedReverse number
+--- maximum steer force magnitude that can be applied to acceleration
+---@field MaxSteerForce number
+--- Used by some build animations to scale their effects
+---@field MeshExtentsX number
+--- Used by some build animations to scale their effects
+---@field MeshExtentsY number
+--- Used by some build animations to scale their effects
+---@field MeshExtentsZ number
+---@field MinSpeedPercent number
+--- method of locomotion
+---@field MotionType UnitMotionType
+--- The occupy rectangles of the unit that will override the footprint. Every 4 numbers in the
+--- array define a occupation rectangle for the override (offsetX, offsetZ, sizeX, sizeZ).
+---@field OccupyRects number[]
+--- Raised platform definition for ground units to move on. Every 3 numbers define a point relative
+--- to the center (x, z, height), and every 4 points (or 12 numbers) defines a platform.
+---@field RaisedPlatforms number[]
+--- how much damping there is against rolling motion (1 = no motion at all)
+---@field RollDamping number
+--- how stable the unit is against rolling (0 to 1)
+---@field RollStability number
+--- The set of rolloff points available for a factory unit.
+---@field RollOffPoints UnitRollOffPoint[]
+--- ability to rotate body to aim weapon "slaved" to body while in still in motion
+---@field RotateBodyWhileMoving? boolean
+--- if this unit can try to rotate on the spot
+---@field RotateOnSpot? boolean
+--- threshold speed in ogrids/s for rotate on spot to take effect. defaults to 0.5
+---@field RotateOnSpotThreshold? number
+--- Allows the unit to sink a bit into the ground so that its legs can touch the ground on uneven terrain.
+---@field SinkLower? boolean
+--- used by the sinker projectile script as the acceleration to reach the bottom of the seabed
+---@field SinkSpeed? number
+--- offset of left edge of skirt from left edge of footprint
+---@field SkirtOffsetX number
+--- offset of top edge of skirt from left edge of footprint
+---@field SkirtOffsetZ number
+--- unit construction pad Size X for building
+---@field SkirtSizeX number
+--- unit construction pad Size Z for building
+---@field SkirtSizeZ number
+--- Stands upright regardless of terrain
+---@field StandUpright boolean
+--- used by XSB3202 (T2 sonar) and XSS0201 (Destroyer) when the vertical layer changes from top to sub
+---@field SubSpeedMultiplier? number
+--- How much this unit slows down transports it is loaded in.  
+--- Defaults to 0.15 (Tech 1), 0.3 (Tech 2), 0.6 (Tech 3), and 1 (ACU/SACU/Experimentals).
+---@field TransportSpeedReduction number
+--- turn facing damping for the unit, usually used for hover units only
+---@field TurnFacingRate number
+--- turn radius for the unit, in world units. Used when the nav waypoint is further than `TurnRadius` distance,
+--- and if it results in a faster turn rate than `TurnRate`. Disabled at 0
+---@field TurnRadius number
+--- turn rate for the unit, in degrees per second. Turning acts improperly when at 0
+---@field TurnRate number
+--- when present, the speed multiplier is set to this number when entering the water layer
+---@field WaterSpeedMultiplier? number
+--- how much wobbling for the unit while hovering
+---@field WobbleFactor number
+--- how fast is the wobble, the faster the less stable looking
+---@field WobbleSpeed number
+---
+--- auto-generated flag for naval factories
+---@field CorrectNavalRollOffPoints? true
+
+---@class UnitRollOffPoint
+---@field UnitSpin integer
+---@field X number
+---@field Y number
+---@field Z number
+
+
+---@class UnitBlueprintTransport
+--- these define that the unit can only land on air staging platforms
+---@field AirClass boolean
+--- define if the unit can fire out of a transport
+---@field CanFireFromTransport? boolean
+--- number of class 1 attach points this affects--note the naming discrepancy
+---@field Class1Capacity? integer
+--- number of class 2 attach points this affects
+---@field Class2AttachSize? integer
+--- number of class 3 attach points this affects
+---@field Class3AttachSize? integer
+--- number of class 4 attach points this affects
+---@field Class4AttachSize? integer
+--- number of class 5 attach points this affects
+---@field ClassSAttachSize? integer
+--- generic slots up to the specified class
+---@field ClassGenericUpTo? integer
+--- how many external docking slots available for air staging platforms
+---@field DockingSlots? number
+--- Seemingly non-functional. Original description: "repairs units attached to me at this % of max health per second"
+---@field RepairRate number
+--- Maximum number of large units this transport can carry. If larger than the number of large slots
+--- calculated from the number hooks, that smaller number is used instead.
+---@field SlotsLarge? integer
+--- Maximum number of medium units this transport can carry. If larger than the number of medium
+--- slots calculated from the number hooks, that smaller number is used instead.
+---@field SlotsMedium? integer
+--- Maximum number of small units this transport can carry. If larger than the number of small
+--- slots calculated from the number hooks, that smaller number is used instead.
+---@field SlotsSmall? integer
+--- how many internal storage slots available for the transport, in additoin to the attach points
+---@field StorageSlots integer
+--- type of attach points required on transports
+---@field TransportClass integer
+
+
+---@class UnitBlueprintVeterancy
+--- Define how much kills are required for reaching veteran level 1
+---@field Level1 integer
+--- Define how much kills are required for reaching veteran level 2
+---@field Level2 integer
+--- Define how much kills are required for reaching veteran level 3
+---@field Level3 integer
+--- Define how much kills are required for reaching veteran level 4
+---@field Level4 integer
+--- Define how much kills are required for reaching veteran level 5
+---@field Level5 integer
+
+
+---@class UnitBlueprintWreckage
+---@field Blueprint string
+--- the amount of energy you get when reclaiming expressed as a multiplier of the energy cost when it was alive>
+---@field EnergyMult number
+--- the amount of health this wreck has so it can take damage from weapons that do area damage>
+---@field HealthMult number
+--- override for the `AssociatedBP` on the wreckage prop used for rebuild bonuses
+---@field IdHook? UnitId
+--- the amount of mass you get when reclaiming expressed as a multiplier of the mass cost when it was alive>
+---@field MassMult number
+--- the time it takes to reclaim this wreck expressed as a multiplier of the build time>
+---@field ReclaimTimeMultiplier number
+--- if true, `Display.MeshBlueprintWrecked` will be used for the wreckage's model instead
+---@field UseCustomMesh? boolean
+--- which layers wreckage will be formed at
+---@field WreckageLayers table<Layer, boolean>
+
+
+-- auto-generated from the unit and projectile blueprints
+
+---@alias EffectType
+---| IdleEffectType
+---| ImpactEffectType
+---| LayerChangeEffectType
+---| MotionChangeEffectType
+---| MovementEffectType
+---| OtherEffectType
+---@alias IdleEffectType
+---| IdleAirEffectType
+---| IdleLandEffectType
+---| IdleSeabedEffectType
+---| IdleSubEffectType
+---| IdleWaterEffectType
+---@alias IdleAirEffectType
+---| "Hover02"
+---| "Hover03"
+---| "Hover04"
+---@alias IdleLandEffectType
+---| "AeonGroundFX01"
+---| "AeonGroundFXT1Engineer"
+---| "AeonGroundFXT2Engineer"
+---| "Hover01"
+---| "Radar01"
+---| "SeaIdle02"
+---| "SeraphimGroundFX01"
+---| "SeraphimGroundFX02"
+---@alias IdleSeabedEffectType
+---| "UnderWater01"
+---@alias IdleSubEffectType
+---| "UnderWater01"
+---@alias IdleWaterEffectType
+---| "AeonGroundFX01"
+---| "AeonGroundFXT1Engineer"
+---| "AeonGroundFXT2Engineer"
+---| "Hover01"
+---| "SeaIdle01"
+---| "SeaIdle02"
+---| "SeraphimGroundFX01"
+---| "SeraphimGroundFX02"
+---@alias ImpactEffectType
+---| "Default"
+---| "Large01"
+---| "LargeBeam01"
+---| "LargeBeam02"
+---| "Medium01"
+---| "Medium02"
+---| "Medium03"
+---| "Small01"
+---| "Small02"
+---@alias LayerChangeEffectType
+---| LayerChangeAirLandEffectType
+---| LayerChangeLandAirEffectType
+---| LayerChangeSeabedLandEffectType
+---| LayerChangeWaterLandEffectType
+---@alias LayerChangeAirLandEffectType
+---| "Landing01"
+---@alias LayerChangeLandAirEffectType
+---| "TakeOff01"
+---@alias LayerChangeSeabedLandEffectType
+---| "Surface01"
+---| "Surface02"
+---@alias LayerChangeWaterLandEffectType
+---| "Surface01"
+---@alias MotionChangeEffectType
+---| MotionChangeSubBottomUpEffectType
+---| MotionChangeWaterTopDownEffectType
+---@alias MotionChangeSubBottomUpEffectType
+---| "Surface01"
+---| "Surface02"
+---@alias MotionChangeWaterTopDownEffectType
+---| "Submerge01"
+---| "Submerge02"
+---@alias MovementEffectType
+---| MovementAirEffectType
+---| MovementLandEffectType
+---| MovementSeabedEffectType
+---| MovementSubEffectType
+---| MovementWaterEffectType
+---@alias MovementAirEffectType
+---| "AirExhaust01"
+---| "AirMoveExhaust01"
+---| "AirMoveExhaust02"
+---| "AirMoveExhaust03"
+---| "AirMoveExhaust"
+---| "Hover03"
+---| "Hover04"
+---| "SerOHWAirMoveExhaust01"
+---| "SerOHWAirMoveExhaust02"
+---| "TakeOff01"
+---@alias MovementLandEffectType
+---| "AeonGroundFX01"
+---| "AeonGroundFXT1Engineer"
+---| "AeonGroundFXT2Engineer"
+---| "GroundKickup01"
+---| "GroundKickup02"
+---| "GroundKickup03"
+---| "GroundKickup04"
+---| "Hover01"
+---| "Landing01"
+---| "SeraphimGroundFX01"
+---| "SeraphimGroundFX02"
+---| "Shoreline01"
+---@alias MovementSeabedEffectType
+---| "Shoreline01"
+---| "UnderWater01"
+---@alias MovementSubEffectType
+---| "BackWake"
+---@alias MovementWaterEffectType
+---| "AeonGroundFX01"
+---| "AeonGroundFXT1Engineer"
+---| "AeonGroundFXT2Engineer"
+---| "BackWake"
+---| "Hover01"
+---| "LeftFrontWake"
+---| "RightFrontWake"
+---| "SeaIdle02"
+---| "SeraphimGroundFX01"
+---| "SeraphimGroundFX02"
+---@alias OtherEffectType
+---| "ThauTerrainMuzzle"
+
+---@alias MotionChangeType
+---| "SubBottomUp"
+---| "WaterTopDown"
+
+---@alias LayerChangeType
+---| "LandAir"
+---| "SeabedLand"
+---| "WaterLand"
+---| "AirLand"

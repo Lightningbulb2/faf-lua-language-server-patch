@@ -1,6 +1,14 @@
 --- luals-3.18.2/script/config/template.lua	2026-06-20 07:50:37.120642280 +0000
-+++ luals-3.18.2-patched/script/config/template.lua	2026-06-20 07:50:54.702151787 +0000
-@@ -228,6 +228,9 @@
++++ fa-modern-ls-work/script/config/template.lua	2026-06-23 01:00:46.375482588 +0000
+@@ -185,6 +185,7 @@
+ ---@format disable-next
+ local template = {
+     ['Lua.runtime.version']                 = Type.String >> 'Lua 5.4' << {
++                                                'LuaFA',
+                                                 'Lua 5.1',
+                                                 'Lua 5.2',
+                                                 'Lua 5.3',
+@@ -228,6 +229,9 @@
                                              }),
      ['Lua.runtime.plugin']                  = Type.Or(Type.String, Type.Array(Type.String)) ,
      ['Lua.runtime.pluginArgs']              = Type.Or(Type.Array(Type.String), Type.Hash(Type.String, Type.String)),
@@ -10,7 +18,7 @@
      ['Lua.runtime.fileEncoding']            = Type.String >> 'utf8' << {
                                                  'utf8',
                                                  'ansi',
-@@ -295,6 +298,8 @@
+@@ -295,6 +299,8 @@
                                              )
                                              >> util.deepCopy(define.DiagnosticDefaultGroupFileStatus),
      ['Lua.diagnostics.enableScheme']        = Type.Array(Type.String) >> { 'file' },
@@ -19,7 +27,7 @@
      ['Lua.diagnostics.workspaceEvent']      = Type.String >> 'OnSave' << {
                                                  'OnChange',
                                                  'OnSave',
-@@ -321,6 +326,8 @@
+@@ -321,6 +327,8 @@
      ['Lua.workspace.maxPreload']            = Type.Integer >> 5000,
      ['Lua.workspace.preloadFileSize']       = Type.Integer >> 500,
      ['Lua.workspace.library']               = Type.Array(Type.String),

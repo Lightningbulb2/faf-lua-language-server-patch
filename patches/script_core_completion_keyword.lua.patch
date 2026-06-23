@@ -1,0 +1,11 @@
+--- luals-3.18.2/script/core/completion/keyword.lua	2026-06-20 07:50:37.123065798 +0000
++++ fa-modern-ls-work/script/core/completion/keyword.lua	2026-06-23 01:01:51.090410111 +0000
+@@ -332,7 +332,7 @@
+             return
+         end
+         local version = config.get(info.uri, 'Lua.runtime.version')
+-        if version == 'Lua 5.1' then
++        if (version == 'Lua 5.1' or version == 'LuaFA') then
+             return
+         end
+         local mostInsideBlock
