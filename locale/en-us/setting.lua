@@ -39,6 +39,11 @@ config.runtime.pluginArgs         =
 -- FAForever additions
 config.runtime.exportEnvDefault   =
 "FAForever: When `true`, all files export their globals as env by default (opt out with `---@declare-global`). When `false` (default), a file must contain `---@export-env` to export globals."
+-- FAForever: custom runtime version
+config.runtime.version.LuaFA      =
+"FAForever: FA's custom Lua 5.0/5.1-era runtime. Enables non-deprecated table.getn, " ..
+"table.empty, continue, !=, and the FA class system. Automatically set when the FA " ..
+"library is detected."
 config.runtime.fileEncoding       =
 "File encoding. The `ansi` option is only available under the `Windows` platform."
 config.runtime.builtin            =

@@ -1270,39 +1270,6 @@ local function compileForVars(source, target)
     if not source.exps then
         return false
     end
-    -- FA patch: `for k, v in t do` -> treat as `for k, v in pairs(t) do`
-    -- When there is exactly one expression in the iterator list and it is not
-    -- already a call (which would naturally expand to iterator, state, initValue),
-    -- wrap it in a synthetic pairs() call so the type system resolves k and v
-    -- correctly from the table's key/value types.
-    if not source._faPairsExps and #source.exps == 1 then
-        local singleExp = source.exps[1]
-        if singleExp and singleExp.type ~= 'call' then
-            -- Build a minimal synthetic call node: pairs(<singleExp>)
-            -- The `node` field is a getglobal for `pairs`; `args` is {singleExp}.
-            -- getReturn() will look up `pairs` in the global scope and apply its
-            -- generic annotation to infer the iterator, state, and initValue.
-            local pairsGlobal = {
-                type   = 'getglobal',
-                [1]    = 'pairs',
-                start  = singleExp.start,
-                finish = singleExp.finish,
-                parent = source,
-            }
-            local pairsCall = {
-                type   = 'call',
-                node   = pairsGlobal,
-                args   = { singleExp },
-                start  = singleExp.start,
-                finish = singleExp.finish,
-                parent = source,
-            }
-            pairsGlobal.parent = pairsCall
-            -- Store as a fake single-element exps list compatible with selectNode
-            source._faPairsExps = { pairsCall }
-        end
-    end
-    local exps = source._faPairsExps or source.exps
     --  for k, v in pairs(t) do
     --> for k, v in iterator, status, initValue do
     --> local k, v = iterator(status, initValue)
@@ -1316,20 +1283,93 @@ local function compileForVars(source, target)
     end
     -- iterator
     if not vm.getNode(source._iterator) then
-        selectNode(source._iterator,    exps, 1)
+        selectNode(source._iterator,    source.exps, 1)
     end
     -- status
     if not vm.getNode(source._iterArgs[1]) then
-        selectNode(source._iterArgs[1], exps, 2)
+        selectNode(source._iterArgs[1], source.exps, 2)
     end
     -- initValue
     if not vm.getNode(source._iterArgs[2]) then
-        selectNode(source._iterArgs[2], exps, 3)
+        selectNode(source._iterArgs[2], source.exps, 3)
     end
     if source.keys then
         for i, loc in ipairs(source.keys) do
             if loc == target then
                 local node = getReturn(source._iterator, i, source._iterArgs)
+
+                -- [[ FA Patch Start: Handle custom `for k, v in t do` syntax extension safely ]]
+                if node:isEmpty() then
+                    local iterNode = vm.getNode(source._iterator)
+                    if iterNode then
+                        local suri        = guide.getUri(source)
+                        local keyNode     = vm.createNode()
+                        local valueNode   = vm.createNode()
+                        local stringType  = vm.getGlobal('type', 'string')
+                        local integerType = vm.getGlobal('type', 'integer')
+
+                        for obj in iterNode:eachObject() do
+                            -- Case 1: Literal tables { x = 1, y = 2 }
+                            if obj.type == 'table' then
+                                for _, field in ipairs(obj) do
+                                    if field.type == 'tablefield' or field.type == 'tableindex' then
+                                        local kName = guide.getKeyName(field)
+                                        if type(kName) == 'string' and stringType then
+                                            keyNode:merge(stringType)
+                                        elseif type(kName) == 'number' and integerType then
+                                            keyNode:merge(integerType)
+                                        end
+                                        if field.value then valueNode:merge(vm.compileNode(field.value)) end
+                                    elseif field.type == 'tableexp' then
+                                        if integerType then keyNode:merge(integerType) end
+                                        valueNode:merge(vm.compileNode(field))
+                                    end
+                                end
+                            -- Case 2: Custom table definitions via annotations e.g. table<string, foo>
+                            elseif obj.type == 'doc.type.table' then
+                                if obj.fields then
+                                    for _, field in ipairs(obj.fields) do
+                                        if field.name then
+                                            if field.name.type == 'doc.type' then
+                                                keyNode:merge(vm.compileNode(field.name))
+                                            elseif stringType then
+                                                keyNode:merge(stringType)
+                                            end
+                                        end
+                                        if field.extends then valueNode:merge(vm.compileNode(field.extends)) end
+                                    end
+                                end
+                            -- Case 3: Sequential Arrays e.g. string[]
+                            elseif obj.type == 'doc.type.array' then
+                                if integerType then keyNode:merge(integerType) end
+                                if obj.node then valueNode:merge(vm.compileNode(obj.node)) end
+                            -- Case 4: Global Class typings and custom objects
+                            elseif obj.type == 'global' and obj.cate == 'type' then
+                                vm.getClassFields(suri, obj, vm.ANY, function (field)
+                                    if field.type == 'doc.field' then
+                                        if field.field then
+                                            if field.field.type == 'doc.type' then
+                                                keyNode:merge(vm.compileNode(field.field))
+                                            elseif stringType then
+                                                keyNode:merge(stringType)
+                                            end
+                                        end
+                                        if field.extends then valueNode:merge(vm.compileNode(field.extends)) end
+                                    end
+                                end)
+                            end
+                        end
+
+                        -- Re-assign matched table generics back to the loop target
+                        if i == 1 and not keyNode:isEmpty() then
+                            node = keyNode
+                        elseif i == 2 and not valueNode:isEmpty() then
+                            node = valueNode
+                        end
+                    end
+                end
+                -- [[ FA Patch End ]]
+
                 node:removeOptional()
                 vm.setNode(loc, node)
                 return true

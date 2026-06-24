@@ -1,12 +1,27 @@
-# FA Lua Language Server — Patches
+# FA Lua Language Server — Patch
 
 This package contains the FA-specific patches applied to
 [LuaLS](https://github.com/LuaLS/lua-language-server) v3.18.2
 to support Supreme Commander: Forged Alliance development.
 
+<mark>**Notice**: Claude.ai was used to read all the FA specific functionality from this LuaLS fork [FAForever/fa-lua-language-server](https://github.com/FAForever/fa-lua-language-server) and build this patch for the modern [LuaLS](https://github.com/LuaLS/lua-language-server).</mark>
+
 ---
 
-## FA-Specific Features
+## Table of Contents
+
+[FA Specific Features](#fa-specific-features)
+
+[Building](#building)
+
+[Updating the FA library](#updating-the-fa-library)
+
+[Updating to a new LuaLS version](#updating-to-a-new-luals-version)
+[What's in this package](#whats-in-this-package)
+
+---
+
+# FA-Specific Features
 
 ### `---@export-env` / `---@declare-global` Directives
 
@@ -29,19 +44,12 @@ directives. `compile.lua` calls it once at parse start and sets `State.hasExport
 `compileExpAsAction` and the function-declaration handler in `parseAction` mark top-level
 globals with `.export = true` when active. No AST nodes are added or re-typed.
 
-### `--#region` / `-- #region` Code Folding
+### Support both "--" and "#" syntax for comments
 
-FA scripts use `--#region` (no space). The FA preprocessor plugin converts `#` to `--`,
-so the comment text the folding provider sees is `--region` rather than `#region`.
+LuaFA supports both `--` and `#` for comments. To do this, the FA preprocessor plugin converts `#` to `--`,
+so the comment text the folding provider sees is `--totally real comment` rather than `#totally real comment`.
 
-`core/folding.lua` and `core/highlight.lua` both match all four variants:
-
-| Input                | Comment text after preprocessing | Matched by                        |
-| -------------------- | -------------------------------- | --------------------------------- |
-| `-- #region`         | ` #region`                       | `#region` pattern                 |
-| `--region`           | `region`                         | `region` pattern                  |
-| `--#region`          | `--region`                       | `--region` pattern (FA-specific)  |
-| `-- #region` (space) | ` -- region`                     | `-- region` pattern (FA-specific) |
+> The conversion is only done when "#" isn't already in a comment (to keep compatibility with `--#region` / `-- #region`)
 
 ### `LuaFA` Runtime Version
 
@@ -65,11 +73,6 @@ set manually via `Lua.runtime.version = "LuaFA"`.
 ### FA Class System (`class.lua`)
 
 The FA class system uses several Lua 5.0-era features that the LS needs to handle:
-
-**`{&N &M}` table size hints** — FA's engine extends the Lua table constructor syntax
-with pre-allocation hints: `{&1 &0}` means "1 hash slot, 0 array slots". These are
-invalid in standard Lua. `plugin.lua` now strips them during preprocessing so the parser
-sees `{}` instead.
 
 **`arg` implicit vararg table** — In Lua 5.0, vararg functions receive arguments as
 `arg = {..., n=N}` rather than `...`. FA's class system uses `unpack(arg)` throughout.
@@ -123,7 +126,7 @@ field injection — Lua's metatable system allows it freely — but LuaLS fires
 Annotating every such site across thousands of FA files would add thousands of
 `---@class`-override casts with no meaningful benefit.
 
-**Fix:** `meta/3rd/fa/config.lua` — `inject-field` added to `Lua.diagnostics.disable`
+**Fix:** `meta/3rd/fa-lib/config.lua` — `inject-field` added to `Lua.diagnostics.disable`
 for all FA workspace files.
 
 ---
@@ -154,7 +157,7 @@ Restricts which URI schemes the server accepts for `didOpen` / `didChange`. Defa
 
 ### Platform-Aware Event Loop (`brave.lua`)
 
-The worker event loop uses `bee.epoll` on Linux/macOS and `bee.select` on Windows:
+The worker event loop uses `bee.epoll` on Linux and `bee.select` on Windows:
 
 ```lua
 if platform.os == 'windows' then
@@ -171,46 +174,7 @@ Both modules share the same `create()` / `event_add(fd, flags)` / `wait()` API.
 
 ---
 
-## What's in this package
-
-```
-script/
-  brave/brave.lua            Platform-aware event loop (bee.select on Windows, bee.epoll on Linux)
-  brave/work.lua             Compile options type annotation (adds exportEnvDefault field)
-  config/template.lua        Three new config keys: exportEnvDefault, disableScheme, supportScheme
-  core/folding.lua           --#region / -- #region folding support
-  core/highlight.lua         --#region / -- #region document highlight support
-  core/diagnostics/
-    undefined-field.lua      Suppress undefined-field inside __init / __post_init bodies
-  files.lua                  Passes exportEnvDefault from config into the parser
-  parser/compile.lua         exportEnvDefault parser integration; export flag on globals
-  parser/guide.lua           isExportEnv(state) function
-  provider/diagnostic.lua    disableScheme filtering
-  provider/provider.lua      supportScheme filtering on didOpen / didChange
-
-locale/en-us/setting.lua     English descriptions for the three new settings
-
-patches/                     Unified diffs against unmodified LuaLS 3.18.2
-  script_brave_brave.lua.patch
-  script_brave_work.lua.patch
-  script_config_template.lua.patch
-  script_core_folding.lua.patch
-  script_core_highlight.lua.patch
-  script_files.lua.patch
-  script_parser_compile.lua.patch
-  script_parser_guide.lua.patch
-  script_provider_diagnostic.lua.patch
-  script_provider_provider.lua.patch
-  locale_en-us_setting.lua.patch
-  script_core_diagnostics_undefined-field.lua.patch
-  meta_3rd_fa_config.lua.patch
-
-win32-cross-compile.ninja    Pre-generated ninja file for Windows cross-compilation from Linux
-```
-
----
-
-## Building
+# Building
 
 ### Prerequisites
 
@@ -230,46 +194,73 @@ update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++
 
 ### Step 1 — Clone LuaLS 3.18.2 and init submodules
 
+This is all built on top of the Lua Language Server so clone that somewhere and cd into it.
+
+```sh
+git clone --branch 3.18.2 https://github.com/LuaLS/lua-language-server
+cd lua-language-server
+git submodule update --init --recursive
+```
+
 > **Version matters.** These patches are generated against the exact `3.18.2` tag.
 > Cloning `main`/HEAD will get a newer commit with different line numbers and the
 > patches will fail to apply.
 
+### Step 2 — Copy over the FA Library
+
+The FA library contains many Lua type stub files covering the engine API as well as the game's codebase.
+
+> See [Updating the FA Library](#updating-the-fa-library) for how to get the latest files straight from the FA codebase before continuing
+
 ```sh
-git clone --depth=1 --branch 3.18.2 https://github.com/LuaLS/lua-language-server
-cd lua-language-server
-git submodule update --init 3rd/luamake 3rd/bee.lua 3rd/EmmyLuaCodeStyle 3rd/lpeglabel
+# Current working directory: "/your/path/to/lua-language-server"
+
+SRC="/your/path/to/faf-lua-language-server-patch"
+cp -r $SRC/meta/3rd/fa-lib meta/3rd
 ```
 
-### Step 2 — Apply patches
+### Step 3 — Apply patches
 
 ```sh
-PATCHES=/path/to/this/package/patches
+# Current working directory: "/your/path/to/lua-language-server"
+# SRC="/your/path/to/faf-lua-language-server-patch"
 
-for p in "$PATCHES"/*.patch; do
+for p in "$SRC"/patches/*.patch; do
     patch -p1 < "$p"
 done
 ```
 
-Or copy the full patched files directly (replacing the cloned versions):
+#### alternative Step 3
+
+Or copy the pre-patched files directly (replacing the cloned versions):
 
 ```sh
-SRC=/path/to/this/package
-cp $SRC/script/brave/brave.lua            script/brave/brave.lua
-cp $SRC/script/brave/work.lua             script/brave/work.lua
-cp $SRC/script/config/template.lua        script/config/template.lua
-cp $SRC/script/core/folding.lua           script/core/folding.lua
-cp $SRC/script/core/highlight.lua         script/core/highlight.lua
-cp $SRC/script/files.lua                  script/files.lua
-cp $SRC/script/parser/compile.lua         script/parser/compile.lua
-cp $SRC/script/parser/guide.lua           script/parser/guide.lua
-cp $SRC/script/provider/diagnostic.lua    script/provider/diagnostic.lua
-cp $SRC/script/provider/provider.lua      script/provider/provider.lua
-cp $SRC/locale/en-us/setting.lua          locale/en-us/setting.lua
+# Current working directory: "/your/path/to/lua-language-server"
+# SRC="/your/path/to/faf-lua-language-server-patch"
+
+cp $SRC/locale/en-us/setting.lua                     locale/en-us/setting.lua
+cp $SRC/script/brave/brave.lua                       script/brave/brave.lua
+cp $SRC/script/brave/work.lua                        script/brave/work.lua
+cp $SRC/script/config/template.lua                   script/config/template.lua
+cp $SRC/script/core/color.lua                        script/core/color.lua
+cp $SRC/script/core/completion/completion.lua        script/core/completion/completion.lua
+cp $SRC/script/core/completion/keyword.lua           script/core/completion/keyword.lua
+cp $SRC/script/core/diagnostics/undefined-field.lua  script/core/diagnostics/undefined-field.lua
+cp $SRC/script/files.lua                             script/files.lua
+cp $SRC/script/library.lua                           script/library.lua
+cp $SRC/script/parser/compile.lua                    script/parser/compile.lua
+cp $SRC/script/parser/guide.lua                      script/parser/guide.lua
+cp $SRC/script/provider/diagnostic.lua               script/provider/diagnostic.lua
+cp $SRC/script/provider/provider.lua                 script/provider/provider.lua
+cp $SRC/script/vm/compiler.lua                       script/vm/compiler.lua
+cp $SRC/script/vm/doc.lua                            script/vm/doc.lua
 ```
 
-### Step 3 — Build luamake
+### Step 4 — Build luamake
 
-**On Linux/macOS:**
+**On Linux:**
+
+> cd into 3rd/luamake is required for the build script's relative paths
 
 ```sh
 cd 3rd/luamake
@@ -282,7 +273,11 @@ cd ../..
 Open a **plain Command Prompt** (not Git Bash — `build.bat` must detect MSVC via
 `vswhere.exe`):
 
+> cd into 3rd/luamake is required for the build script's relative paths
+
 ```bat
+:: cd back into the lua-language-server directory
+
 cd 3rd\luamake
 compile\build.bat
 cd ..\..\
@@ -295,28 +290,21 @@ cd ..\..\
 Ninja must be in your PATH. Visual Studio's Developer Command Prompt includes it
 automatically, or install it standalone: https://github.com/ninja-build/ninja/releases
 
-If you get this error:
+### Step 5 — Build the binary
 
-ninja: error: 'bee.lua/bootstrap/bootstrap.rc', needed by 'build/msvc/obj/luamake/bootstrap.obj', missing and no known rule to make it
-
-Then do:
-
-```
-cd PATH/TO/THE/lua-language-server
-git submodule update --init --recursive
-```
-
-### Step 4 — Build the binary
-
-**On Linux/macOS:**
+**On Linux:**
 
 ```sh
+# in the lua-language-server directory
+
 ./3rd/luamake/luamake rebuild
 ```
 
 **On Windows** (from a plain Command Prompt or VS Developer Command Prompt):
 
 ```bat
+:: in the lua-language-server directory
+
 3rd\luamake\luamake.exe rebuild
 ```
 
@@ -324,10 +312,12 @@ This runs the full test suite. All tests must pass.
 
 Output:
 
-- Linux/macOS: `bin/lua-language-server`
+- Linux: `bin/lua-language-server`
 - Windows: `bin/lua-language-server.exe` + `bin/lua-language-server.dll` + MSVC runtime DLLs
 
-### Step 5 — Build the Windows binary from Linux (cross-compile, optional)
+### Step 6 (optional) — Build the Windows binary from Linux (cross-compile, optional)
+
+> <mark>This is an unverified claude-written section (I'm not running linux), if you have tested and/or want improvements to it, please submit a PR</mark>
 
 Only needed if you want to produce a Windows binary on a Linux host. Skip this if
 you built natively on Windows in Step 4.
@@ -364,10 +354,10 @@ x86_64-w64-mingw32-objdump -p build/win32/bin/lua-language-server.exe | grep "DL
 
 ---
 
-## Building a Universal Package (all platforms from Windows)
+## Step 6 (optional) — Build the Linux binary from Windows
 
-The extension can bundle Linux, macOS, and Windows binaries in the same `.vsix` so users
-on any OS install the same file. The Windows binary is easy (build natively). For the
+The extension can bundle Linux and Windows binaries in the same `.vsix` so users
+on either OS install the same file. The Windows binary is easy (build natively). For the
 Linux binary you have three options from a Windows host.
 
 ---
@@ -396,7 +386,7 @@ sudo apt install -y git gcc g++ ninja-build
 
 ```sh
 # Inside WSL2 Ubuntu terminal
-git clone --depth=1 --branch 3.18.2 https://github.com/LuaLS/lua-language-server
+git clone --branch 3.18.2 https://github.com/LuaLS/lua-language-server
 cd lua-language-server
 
 # Apply FA patches (copy them from Windows into WSL2 first, or clone from your repo)
@@ -425,6 +415,8 @@ cp bin/main.lua             /mnt/c/path/to/extension/server/bin/main.lua
 
 ### Option B — Docker Desktop
 
+> <mark>This is an unverified claude-written section, if you have tested and/or want improvements to it, please submit a PR</mark>
+
 Docker Desktop runs Linux containers on Windows without WSL2 (though it also works
 with WSL2 as backend).
 
@@ -450,6 +442,8 @@ Windows when the container exits (volume mount keeps the output).
 
 ### Option C — GitHub Actions (no local Linux at all)
 
+> <mark>This is an unverified claude-written section, if you have tested and/or want improvements to it, please submit a PR</mark>
+
 If you don't want to install WSL2 or Docker, let CI build the Linux binary and
 download the artifact.
 
@@ -464,40 +458,100 @@ The artifact contains `bin/lua-language-server` and all the Lua scripts — just
 
 ---
 
-### Assembling the universal VSIX
+### Step 7 (FINAL, Optional) — Assembling the .VSIX for VSCode
 
-Once you have binaries from all platforms, assemble `server/bin/` like this:
-
-```
-server/bin/
-  main.lua                      ← from make/bootstrap.lua (same for all platforms)
-  lua-language-server           ← Linux binary (from WSL2, Docker, or CI)
-  lua-language-server.exe       ← Windows binary (built natively with MSVC)
-  lua-language-server.dll       ← Windows (from native MSVC build)
-  libwinpthread-1.dll           ← Windows (only if using mingw cross-compile)
-  <other MSVC DLLs>             ← Windows (msvcp140.dll, vcruntime140.dll, etc.)
-```
-
-> If you built Windows natively with MSVC, copy ALL `.dll` files from `bin\` —
-> the MSVC build links dynamically to the Visual C++ runtime. If you used the
-> provided `win32-cross-compile.ninja` from Linux instead, you only need
-> `libwinpthread-1.dll`.
-
-The extension's `languageserver.ts` picks the right binary automatically:
-
-```
-Windows → lua-language-server.exe
-Linux   → lua-language-server
-macOS   → lua-language-server  (same name, different binary)
-```
-
-For a truly universal package you'd also want a macOS binary. That requires either
-a Mac or a macOS CI runner — there's no practical cross-compiler for macOS from
-Windows/Linux due to Apple's SDK licensing.
+Once you have binaries for one or both platforms you can continue the instructions at [Lightningbulb2/faf-lua-vscode-extension-patch](https://github.com/Lightningbulb2/faf-lua-vscode-extension-patch)
 
 ---
 
-## Critical: The `_ENV = nil` Constraint
+# Updating the FA library
+
+The FA library is from part of the game's repository [`FAForever/fa`](https://github.com/FAForever/fa) and pieces must be copied over if there have been many updates to its lua.
+
+clone the game repo somewhere and cd into it.
+
+```sh
+git clone https://github.com/FAForever/fa
+cd fa
+```
+
+```sh
+# Current working directory: "/your/path/to/fa"
+
+SRC="/your/path/to/faf-lua-language-server-patch"
+
+cp -r /engine  $SRC/meta/3rd/fa-lib/library
+cp -r /lua  $SRC/meta/3rd/fa-lib/library
+
+```
+
+---
+
+# Updating to a New LuaLS Version
+
+1. Clone the new tag and re-apply patches with `patch -p1`.
+2. Check whether these functions were moved or renamed upstream:
+   - `compileExpAsAction` in `compile.lua` — export flag injection point
+   - Function name handler in `parseAction` in `compile.lua` — function export
+   - `isValid` in `diagnostic.lua` — disableScheme injection point
+   - `textDocument/didOpen` and `textDocument/didChange` in `provider.lua`
+3. Run `./3rd/luamake/luamake rebuild` — all tests must pass.
+4. Regenerate `win32-cross-compile.ninja` from the new `build/build.ninja` by applying
+   the same source-file and linker-flag substitutions documented in the skill (For LLMs).
+
+---
+
+# What's in this package
+
+```
+script/
+  brave/brave.lua            Platform-aware event loop (bee.select on Windows, bee.epoll on Linux)
+  brave/work.lua             Compile options type annotation (adds exportEnvDefault field)
+  config/template.lua        Three new config keys: exportEnvDefault, disableScheme, supportScheme
+  core/completion/completion.lua
+  core/completion/keyword.lua
+  core/diagnostics/undefined-field.lua      Suppress undefined-field inside __init / __post_init bodies
+  core/color.lua
+  files.lua                  Passes exportEnvDefault from config into the parser
+  parser/compile.lua         exportEnvDefault parser integration; export flag on globals
+  parser/guide.lua           isExportEnv(state) function
+  provider/diagnostic.lua    disableScheme filtering
+  provider/provider.lua      supportScheme filtering on didOpen / didChange
+  vm/compiler.lua
+  vm/doc.lua
+  library.lua
+
+locale/en-us/setting.lua     English descriptions for the three new settings
+
+meta/3rd/fa-lib              The FA library contains many Lua type stub files covering the engine API as well as the game's codebase.
+
+patches/                     Unified diffs against unmodified LuaLS 3.18.2
+  locale_en-us_setting.lua.patch
+  script_brave_brave.lua.patch
+  script_brave_work.lua.patch
+  script_config_template.lua.patch
+  script_core_color.lua.patch
+  script_core_completion_completion.lua.patch
+  script_core_completion_keyword.lua.patch
+  script_core_diagnostics_undefined-field.lua.patch
+  script_files.lua.patch
+  script_library.lua.patch
+  script_parser_compile.lua.patch
+  script_parser_guide.lua.patch
+  script_provider_diagnostic.lua.patch
+  script_provider_provider.lua.patch
+  script_vm_compiler.lua.patch
+  script_vm_doc.lua.patch
+
+
+win32-cross-compile.ninja    Pre-generated ninja file for Windows cross-compilation from Linux
+```
+
+---
+
+## Notes for when modifying patches for the language server
+
+### Critical: The `_ENV = nil` Constraint
 
 `script/parser/compile.lua` sets `_ENV = nil` at line 19 to prevent accidental global
 access. Every standard library function used in that file must be captured as a `local`
@@ -518,77 +572,3 @@ _ENV = nil
 ```
 
 ---
-
-## FA Meta Library (`meta/3rd/fa/library`) (SLOPPY AND INCOMPLETE SECTION)
-
-The FA library lives in the [`FAForever/fa`](https://github.com/FAForever/fa) game repo and must be copied in
-separately. It contains many Lua type stub files covering the engine API.
-
-### Initial setup (SLOPPY AND INCOMPLETE SECTION)
-
-```sh
-# From the lua-language-server root:
-git clone --depth=1 https://github.com/FAForever/fa fa-game-repo
-python3 -c "
-import shutil, os
-
-src = 'fa-game-repo/lua/'
-dst = 'meta/3rd/fa/library/'
-
-src2 = 'fa-game-repo/engine/'
-dst = 'meta/3rd/fa/library/'
-
-if os.path.exists(dst):
-    shutil.rmtree(dst)
-shutil.copytree(src, dst)
-print('FA meta library installed:', sum(len(fs) for _,_,fs in os.walk(dst)), 'files')
-"
-```
-
-Then overwrite with the FA-patch versions (plugin.lua, config.lua, and new stubs):
-
-```sh
-cp /path/to/this/package/meta/3rd/fa/plugin.lua meta/3rd/fa/plugin.lua
-cp /path/to/this/package/meta/3rd/fa/config.lua meta/3rd/fa/config.lua
-mkdir -p meta/3rd/fa/library/stdlib
-cp /path/to/this/package/meta/3rd/fa/library/stdlib/table.lua meta/3rd/fa/library/stdlib/table.lua
-mkdir -p meta/3rd/fa/library/engine
-cp /path/to/this/package/meta/3rd/fa/library/engine/class.lua meta/3rd/fa/library/engine/class.lua
-```
-
-### Updating the FA library (SLOPPY AND INCOMPLETE SECTION)
-
-When the FAF game repo updates its type stubs, pull the new version:
-
-```sh
-cd fa-game-repo && git pull && cd ..
-python3 -c "
-import shutil
-shutil.rmtree('meta/3rd/fa')
-shutil.copytree('fa-game-repo/lua/language-server/meta/3rd/fa', 'meta/3rd/fa')
-"
-# Re-apply the patch overrides
-cp /path/to/this/package/meta/3rd/fa/plugin.lua  meta/3rd/fa/plugin.lua
-cp /path/to/this/package/meta/3rd/fa/config.lua  meta/3rd/fa/config.lua
-cp /path/to/this/package/meta/3rd/fa/library/stdlib/table.lua  meta/3rd/fa/library/stdlib/table.lua
-cp /path/to/this/package/meta/3rd/fa/library/engine/class.lua  meta/3rd/fa/library/engine/class.lua
-```
-
-> **Note:** The FA game repo may be at a different path or use a different structure
-> depending on the FAF release. The type stubs have historically lived at
-> `lua/language-server/meta/3rd/fa/` in the fa repo.
-
----
-
-## Updating to a New LuaLS Version
-
-1. Clone the new tag and re-apply patches with `patch -p1`.
-2. Check whether these functions were moved or renamed upstream:
-   - `compileExpAsAction` in `compile.lua` — export flag injection point
-   - Function name handler in `parseAction` in `compile.lua` — function export
-   - `isValid` in `diagnostic.lua` — disableScheme injection point
-   - `textDocument/didOpen` and `textDocument/didChange` in `provider.lua`
-   - `comment.short` handler in `core/folding.lua` and `core/highlight.lua`
-3. Run `./3rd/luamake/luamake rebuild` — all tests must pass.
-4. Regenerate `win32-cross-compile.ninja` from the new `build/build.ninja` by applying
-   the same source-file and linker-flag substitutions documented in the skill.
