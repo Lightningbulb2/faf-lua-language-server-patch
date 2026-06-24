@@ -1,14 +1,14 @@
 -- if not set, the folder name will be used
 name    = 'Forged Alliance'
--- match any word to load 
-words   = {'.'}
+-- match any word to load
+words   = { '.' }
 -- lsit of settings to be changed
 ---@type config.change[]
 configs = {
     {
         key    = 'Lua.runtime.version',
         action = 'set',
-        value  = 'Lua 5.1',
+        value  = 'LuaFA',
     },
     {
         key    = 'Lua.runtime.path',
@@ -69,8 +69,8 @@ configs = {
         value  = 'inject-field',
     },
 }
-for _, name in ipairs {'moho'} do
-    configs[#configs+1] = {
+for _, name in ipairs { 'moho' } do
+    configs[#configs + 1] = {
         key    = 'Lua.diagnostics.globals',
         action = 'add',
         value  = name,

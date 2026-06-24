@@ -17,6 +17,7 @@ to support Supreme Commander: Forged Alliance development.
 [Updating the FA library](#updating-the-fa-library)
 
 [Updating to a new LuaLS version](#updating-to-a-new-luals-version)
+
 [What's in this package](#whats-in-this-package)
 
 ---
