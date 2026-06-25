@@ -1,0 +1,19 @@
+{
+    "name": "Forged Alliance",
+    "words": [ "." ],
+    "settings": {
+        "Lua.runtime.version": "LuaFA",
+        "Lua.runtime.path": [ "/?" ],
+        "Lua.completion.showWord": "Disable",
+        "Lua.runtime.special": {
+            "import":   "require",
+            "doscript": "require"
+        },
+        "Lua.runtime.nonstandardSymbol": [ "continue", "!=" ],
+        "Lua.completion.requireSeparator": "/",
+        "Lua.runtime.pathStrict": false,
+        "Lua.runtime.exportEnvDefault": true,
+        "Lua.diagnostics.disable": [ "inject-field" ],
+        "Lua.diagnostics.globals": [ "moho" ]
+    }
+}
