@@ -568,6 +568,31 @@ function vm.getClassFields(suri, object, key, pushResult)
                                 end
                             end
                         end)
+                    elseif src.value
+                    and    src.value.type == 'call'
+                    and    src.value.args
+                    and    src.value.args[1]
+                    and    src.value.args[1].type == 'table' then
+                        -- FAForever: FA's Class/ClassUI pattern:
+                        --   local ChatInterface = ClassUI(Window) { SetupDragHandles = fn, ... }
+                        -- src.value is a 'call' node whose args[1] is the class spec table.
+                        -- We read args[1] directly instead of calling vm.compileNode(src.value)
+                        -- to avoid a circular dependency: compiling the call resolves generic T
+                        -- by compiling the table body, which references `self` typed as the class
+                        -- currently being compiled, whose cache is still empty at this point.
+                        local tbl = src.value.args[1]
+                        if tbl ~= class then
+                            searchFieldSwitch('table', suri, tbl, key, function (field)
+                                local fieldKey = guide.getKeyName(field)
+                                if fieldKey then
+                                    if  not searchedFields[fieldKey]
+                                    and guide.isAssign(field) then
+                                        hasFounded[fieldKey] = true
+                                        pushResult(field, true)
+                                    end
+                                end
+                            end)
+                        end
                     end
                     if  src.value
                     and src.value.type == 'select'
@@ -1533,7 +1558,9 @@ local function compileFunctionParam(func, source)
                         end
                         vm.getClassFields(suri, extClass, key, function (field, _isMark)
                             for n in vm.compileNode(field):eachObject() do
-                                if n.type == 'function' and n.args[aindex] then
+                                if (n.type == 'function' or n.type == 'doc.type.function')
+                                and n.args[aindex]
+                                then
                                     local argNode = vm.compileNode(n.args[aindex])
                                     for an in argNode:eachObject() do
                                         if an.type ~= 'doc.generic.name' then

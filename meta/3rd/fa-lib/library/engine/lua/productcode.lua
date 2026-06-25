@@ -1,1 +1,0 @@
-productCode = 'SC1X'
