@@ -8,6 +8,17 @@ local skipCheckClass = {
     ['unknown']       = true,
     ['any']           = true,
     ['table']         = true,
+    -- FAForever: FA's Class/ClassUI generic T inference can produce 'function' views
+    -- when the class constructor type (fun(specs:T):T|Base) is partially resolved.
+    -- The old fa-lua-language-server skipped all of these; we keep the same set to
+    -- avoid spurious undefined-field false-positives on FA class method call sites.
+    ['nil']           = true,
+    ['number']        = true,
+    ['integer']       = true,
+    ['boolean']       = true,
+    ['function']      = true,
+    ['userdata']      = true,
+    ['lightuserdata'] = true,
 }
 
 -- FAForever: names of FA class initialisation methods.
@@ -20,23 +31,41 @@ local faInitMethods = {
     ['__post_init'] = true,
 }
 
---- FAForever: returns true when `src` lives inside an FA class init function.
---- The AST path is: src → (getParentFunction) → function node
----   whose .parent is a tablefield with key '__init' / '__post_init'.
+--- FAForever: returns true when `src` lives inside an FA class init function
+--- (or inside any closure nested within one).
+---
+--- The AST path for a direct call is:
+---   src (getmethod/getfield) → call → func (__init function)
+---     → tablefield { field='__init', value=func } → table → ...
+---
+--- For closures inside __init the direct parent function is the closure,
+--- not __init itself. We therefore walk ALL ancestor functions until we find
+--- one whose tablefield key is '__init' / '__post_init', or until we reach
+--- the file root (main chunk).
 local function isInsideFAInit(src)
-    local fn = guide.getParentFunction(src)
-    if not fn then
-        return false
+    local obj = src
+    for _ = 1, 1000 do
+        -- walk up to the next enclosing function
+        local fn = guide.getParentFunction(obj)
+        if not fn then
+            return false
+        end
+        -- stop at the file root
+        if fn.type == 'main' then
+            return false
+        end
+        -- check whether this function IS the __init / __post_init body
+        local tf = fn.parent           -- tablefield { field=<key>, value=fn }
+        if tf and tf.type == 'tablefield' then
+            local field = tf.field     -- the key token; field[1] is its string name
+            if field and faInitMethods[field[1]] then
+                return true
+            end
+        end
+        -- not a match at this level: continue walking up from the function node
+        obj = fn
     end
-    local tf = fn.parent           -- tablefield  { field=<key>, value=fn }
-    if not tf or tf.type ~= 'tablefield' then
-        return false
-    end
-    local field = tf.field         -- the key token; field[1] is its string name
-    if not field then
-        return false
-    end
-    return faInitMethods[field[1]] == true
+    return false
 end
 
 ---@async
@@ -53,7 +82,9 @@ return function (uri, callback)
         if vm.hasDef(src) then
             return
         end
-        -- FAForever: suppress inside __init / __post_init bodies
+        -- FAForever: suppress inside __init / __post_init bodies (and closures
+        -- nested within them) to avoid false-positives on sibling methods that
+        -- are defined later in the same class table literal.
         if isInsideFAInit(src) then
             return
         end

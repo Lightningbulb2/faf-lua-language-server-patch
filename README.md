@@ -47,10 +47,29 @@ globals with `.export = true` when active. No AST nodes are added or re-typed.
 
 ### Support both "--" and "#" syntax for comments
 
-LuaFA supports both `--` and `#` for comments. To do this, the FA preprocessor plugin converts `#` to `--`,
-so the comment text the folding provider sees is `--totally real comment` rather than `#totally real comment`.
+LuaFA supports both `--` and `#` for comments. The FA preprocessor plugin (`meta/3rd/fa-lib/plugin.lua`) converts bare `#` to `--` before the parser sees the file.
 
-> The conversion is only done when "#" isn't already in a comment (to keep compatibility with `--#region` / `-- #region`)
+The conversion is only done when `#` is **not** already inside a `--` comment:
+
+- `# this is a comment` → `-- this is a comment` ✓
+- `local x = 5 # inline comment` → `local x = 5 -- inline comment` ✓
+- `-- already a comment with # in it` → unchanged ✓
+- `--#region` → **unchanged** (upstream LuaLS handles `--#region` folding natively)
+
+The scanner walks each line character-by-character, skipping over string literal spans (`"..."` / `'...'` including `\\` escape sequences), so `--` inside a string is not mistaken for a comment start.
+
+### Bitwise operators: `&`, `|`, `<<`, `>>`, `^` (XOR)
+
+FA's runtime adds C-style bitwise operators as first-class syntax despite originating from Lua 5.0 (those were added natively in Lua 5.3)
+(see [FAForever/lua-lang](https://github.com/FAForever/lua-lang)):
+
+| Operator | Meaning     | Notes                         |
+| -------- | ----------- | ----------------------------- |
+| `&`      | bitwise AND | binary                        |
+| `\|`     | bitwise OR  | binary                        |
+| `<<`     | left shift  | binary                        |
+| `>>`     | right shift | binary                        |
+| `^`      | bitwise XOR | binary (replaces Lua 5.x pow) |
 
 ### `LuaFA` Runtime Version
 
@@ -66,6 +85,8 @@ warnings from functions that are standard (not deprecated) in FA's custom runtim
 | `table.getsize(t)`     | unknown                  | ✓ FA extension                      |
 | `continue` keyword     | error                    | ✓ via nonstandardSymbol             |
 | `!=` operator          | error                    | ✓ via nonstandardSymbol             |
+| `<<` / `>>` operators  | error (Lua 5.1)          | ✓ no error                          |
+| `&` / `\|` / `^`       | error (Lua 5.1)          | ✓ no error                          |
 | `arg` implicit vararg  | undefined-global         | ✓ declared as global                |
 
 Set automatically by the FA `config.lua` when any `.lua` file is opened. Can be

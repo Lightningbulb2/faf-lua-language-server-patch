@@ -37,8 +37,6 @@ Only modify the C++ layer when you need new native symbols.
 | `script/files.lua` | Passes `exportEnvDefault` from config to compiler options |
 | `script/provider/diagnostic.lua` | `disableScheme` filtering in the diagnostic provider |
 | `script/provider/provider.lua` | `supportScheme` guard on `didOpen` / `didChange` |
-| `script/core/folding.lua` | Adds `--#region` / `-- #region` folding variants |
-| `script/core/highlight.lua` | Adds `--#region` / `-- #region` to document highlight |
 | `locale/en-us/setting.lua` | Descriptions for the three new settings |
 | `script/core/diagnostics/undefined-field.lua` | Suppress `undefined-field` inside `__init` / `__post_init` function bodies |
 
@@ -174,21 +172,102 @@ document symbol provider, semantic token engine, and causes 3–7 second hangs.
 
 ## Region Folding
 
-`core/folding.lua` and `core/highlight.lua` both check comment text against four patterns:
+Upstream LuaLS natively supports `--#region` / `--#endregion` folding. No patches to
+`folding.lua` or `highlight.lua` are required.
+
+The FA `plugin.lua` preprocessor does **not** touch `--#region` lines: when scanning a
+line, it detects the `--` at column 1 as a real comment start and stops — the `#` that
+follows is already inside the comment and is left alone. So `--#region` reaches the
+language server unchanged and LuaLS folds it normally.
+
+A standalone `#region` at the start of a line (no leading `--`) is a valid FA-style
+comment. The preprocessor replaces the `#` with `--`, making it `--region`. This is
+treated as a regular comment; it will **not** trigger fold markers (use `--#region`
+instead if you want foldable regions in FA code).
+
+---
+
+## Bitwise Operators (`<<`, `>>`, `&`, `|`, `^`)
+
+FA's runtime (see [FAForever/lua-lang](https://github.com/FAForever/lua-lang)) adds
+C-style bitwise operators. The LuaLS parser already has all five in `BinarySymbol` with
+correct precedence:
 
 ```lua
--- standard LuaLS patterns
-s:sub(1, #'region')    == 'region'
-s:sub(1, #'#region')   == '#region'
--- FA additions: --#region becomes ----region after preprocessing (# → --)
--- comment text is then `--region`, not `#region`
-s:sub(1, #'--region')  == '--region'
-s:sub(1, #'-- region') == '-- region'
+['|']   = 4,   -- bitwise OR
+['~']   = 5,   -- bitwise XOR (binary) / NOT (unary)
+['&']   = 6,   -- bitwise AND
+['<<']  = 7,   -- left shift
+['>>']  = 7,   -- right shift
 ```
 
-The FA `plugin.lua` preprocessor replaces every `#` with `--` before the parser sees the
-file. So `--#region` in the source becomes `----region`, and `ssub(Lua, start+2, right)`
-gives `--region` as the comment text. The `#region` pattern won't match it.
+**Problem with `<<` and `>>`:** `parseBinaryOP` (compile.lua ~line 2983) has a version
+guard that fires `UNSUPPORT_SYMBOL` for these two unless the version is `Lua 5.3/5.4/5.5`.
+`LuaFA` was not in that allowlist.
+
+**Fix:** Add `and State.version ~= 'LuaFA'` to the guard condition:
+
+```lua
+if token == '//'
+or token == '<<'
+or token == '>>' then
+    if  State.version ~= 'Lua 5.3'
+    and State.version ~= 'Lua 5.4'
+    and State.version ~= 'Lua 5.5'
+    -- FAForever: LuaFA supports bitwise << >> (see FAForever/lua-lang)
+    and State.version ~= 'LuaFA' then
+        pushError { type = 'UNSUPPORT_SYMBOL', ... }
+    end
+end
+```
+
+`&`, `|`, `~` (unary bitwise NOT) and `^` already had no version guard — they parse
+without error under any version. Only `<<` and `>>` needed this fix.
+
+**Patch file:** `patches/script_parser_compile.lua.patch` (new hunk at `@@ -2985 @@`)
+
+---
+
+## `plugin.lua` — `#` Preprocessor Bug Fix
+
+**File:** `meta/3rd/fa-lib/plugin.lua`
+
+**Symptom:** On a line like `local x = "a--b" # comment`, the `#` after the string
+should be replaced with `--` (it is a FA-style comment). The old code called
+`line:find("--", 1, true)` and found `--` at column 12 *inside the string*, then
+treated `hash_pos > comment_pos` as "already in a comment" → the `#` was silently
+dropped with no replacement.
+
+**Root cause:** `line:find("--", 1, true)` is a plain substring search that cannot
+distinguish `--` inside a string literal from a real Lua comment.
+
+**Fix:** Walk the line character-by-character, honouring string literal spans:
+
+```
+State machine per character:
+  ' or "  → enter string, skip to matching close-quote (handle \\ escapes)
+  --      → found real comment start; record position and stop
+  other   → advance
+```
+
+After finding the real `comment_pos` (or `nil` if no `--` comment exists outside
+strings), the `#`-replacement logic is unchanged: replace every `#` that precedes
+`comment_pos`, stop at the first `#` that follows it.
+
+**Edge cases handled correctly after the fix:**
+
+| Line                              | comment_pos | `#` replaced? |
+|-----------------------------------|-------------|---------------|
+| `# comment`                       | nil         | yes (col 1)   |
+| `local x = 5 # comment`           | nil         | yes           |
+| `-- real comment # hash`          | 1           | no            |
+| `local s = "a--b" # comment`      | nil*        | yes           |
+| `local s = "a--b" -- real # hash` | 20*         | no            |
+
+_*`--` inside `"a--b"` is skipped; the scanner continues past the closing `"`._
+
+**This file is shipped directly (no `.patch` file for it).** Update `plugin.lua` in
+`meta/3rd/fa-lib/` directly.
 
 ---
 
@@ -397,11 +476,13 @@ Use explicit `.a` file paths in the link command instead.
 3. Verify these functions still exist with the same signatures:
    - `compileExpAsAction` in `compile.lua`
    - Function name handler block in `parseAction` in `compile.lua`
-   - `comment.short` handler in `core/folding.lua` and `core/highlight.lua`
    - `isValid` function in `provider/diagnostic.lua`
    - `textDocument/didOpen` and `textDocument/didChange` in `provider/provider.lua`
    - `checkUndefinedField` inner function in `core/diagnostics/undefined-field.lua`
      (specifically: the `if vm.hasDef(src) then return end` block that our FA guard follows)
+   - The `if token == '//' or token == '<<' or token == '>>'` block in `parseBinaryOP`
+     in `compile.lua` — confirm our `and State.version ~= 'LuaFA'` line is still present
+     and that LuaLS hasn't moved or restructured this version guard.
 4. Run `./3rd/luamake/luamake rebuild` — all tests must pass.
 5. Regenerate `win32-cross-compile.ninja` using the substitutions above.
 6. Rebuild the Windows exe and verify DLL dependencies.

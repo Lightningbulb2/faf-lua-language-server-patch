@@ -1,5 +1,5 @@
---- luals-3.18.2/script/parser/compile.lua	2026-06-20 07:50:37.142827155 +0000
-+++ fa-modern-ls-work/script/parser/compile.lua	2026-06-23 01:01:21.952821526 +0000
+--- luals-3.18.2/script/parser/compile.lua
++++ fa-modern-ls-work/script/parser/compile.lua
 @@ -442,7 +442,7 @@
              : gsub('\r\n?', '\n')
          stringResult = result
@@ -36,7 +36,19 @@
          return
      end
      local node = call.node
-@@ -3337,6 +3337,17 @@
+@@ -2985,7 +2985,10 @@
+     or token == '>>' then
+         if  State.version ~= 'Lua 5.3'
+         and State.version ~= 'Lua 5.4'
+-        and State.version ~= 'Lua 5.5' then
++        and State.version ~= 'Lua 5.5'
++        -- FAForever: LuaFA supports bitwise << >> (and // is floor-div in standard Lua;
++        -- for FA, // is a line-comment via nonstandardSymbol so it never reaches here)
++        and State.version ~= 'LuaFA' then
+             pushError {
+                 type    = 'UNSUPPORT_SYMBOL',
+                 version = {'Lua 5.3', 'Lua 5.4', 'Lua 5.5'},
+@@ -3337,6 +3340,17 @@
  end
  
  local function compileExpAsAction(exp)
@@ -54,7 +66,7 @@
      pushActionIntoCurrentChunk(exp)
      if GetToSetMap[exp.type] then
          skipSpace()
-@@ -3761,7 +3772,7 @@
+@@ -3761,7 +3775,7 @@
          block.labels[name] = label
      end
  
@@ -63,7 +75,7 @@
          pushError {
              type   = 'UNSUPPORT_SYMBOL',
              start  = left,
-@@ -4516,6 +4527,13 @@
+@@ -4516,6 +4530,13 @@
                      }
                  end
              end
@@ -77,7 +89,7 @@
              pushActionIntoCurrentChunk(name)
              return name
          else
-@@ -4644,6 +4662,8 @@
+@@ -4644,6 +4665,8 @@
      Mode = mode
      initState(lua, version, options)
      skipSpace()

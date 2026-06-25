@@ -2985,7 +2985,10 @@ local function parseBinaryOP(asAction, level)
     or token == '>>' then
         if  State.version ~= 'Lua 5.3'
         and State.version ~= 'Lua 5.4'
-        and State.version ~= 'Lua 5.5' then
+        and State.version ~= 'Lua 5.5'
+        -- FAForever: LuaFA supports bitwise << >> (and // is floor-div in standard Lua;
+        -- for FA, // is a line-comment via nonstandardSymbol so it never reaches here)
+        and State.version ~= 'LuaFA' then
             pushError {
                 type    = 'UNSUPPORT_SYMBOL',
                 version = {'Lua 5.3', 'Lua 5.4', 'Lua 5.5'},
