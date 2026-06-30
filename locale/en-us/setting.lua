@@ -97,9 +97,6 @@ Other settings will override individual settings without end of `!`.
 ]]
 config.diagnostics.workspaceEvent =
 "Set the time to trigger workspace diagnostics."
--- FAForever: legacy scheme disabling
-config.diagnostics.disableScheme  =
-"FAForever: URI schemes on which diagnostics are suppressed (e.g. `git`). Complements `enableScheme`."
 config.diagnostics.workspaceEvent.OnChange =
 "Trigger workspace diagnostics when the file is changed."
 config.diagnostics.workspaceEvent.OnSave =

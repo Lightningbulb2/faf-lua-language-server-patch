@@ -237,7 +237,7 @@ local State, Lua, Line, LineOffset, Chunk, Tokens, Index, LastTokenFinish, Mode,
 
 local LocalLimit = 200
 
-local parseExp, parseAction
+local parseExp, parseAction, pushActionIntoCurrentChunk, parseMultiVars
 
 ---@class parser.state.err
 ---@field type string
@@ -2378,6 +2378,20 @@ local function resolveName(node)
         return nil
     end
     local var = getVariable(node[1], node.start)
+    local nextToken = Tokens[Index + 1]
+    if (not var and nextToken == '=' and State.hasExportEnv) then
+        var = createLocal(node)
+        var.export = true
+        pushActionIntoCurrentChunk(var)
+        skipSpace()
+        parseMultiVars(var, parseName, true)
+        if var.value then
+            var.effect = var.value.finish
+        else
+            var.effect = var.finish
+        end
+        return var
+    end
     if var and (var.type == 'local' or var.type == 'self') then
         node.type = 'getlocal'
         node.node = var
@@ -2599,7 +2613,10 @@ local function parseFunction(declareType, isAction)
         local name = parseName()
         if name then
             local simple = parseSimple(name, true)
-            if declareType == 'local' then
+            -- treat global as local when we want to export env the type is a simple name
+            -- this is to avoid picking up getField names like `function m.Function()`
+            local shouldExport = State.hasExportEnv and simple.type == 'name' and not isLocal
+            if declareType == 'local' or shouldExport then
                 if simple == name then
                     createLocal(name)
                 else
@@ -2623,6 +2640,9 @@ local function parseFunction(declareType, isAction)
                 end
             else
                 resolveName(name)
+            end
+            if shouldExport then
+                name.export = true
             end
             func.name   = simple
             func.finish = simple.finish
@@ -3135,7 +3155,7 @@ local function parseSetValues()
     end
 end
 
-local function pushActionIntoCurrentChunk(action)
+function pushActionIntoCurrentChunk(action)
     local chunk = Chunk[#Chunk]
     if chunk then
         chunk[#chunk+1] = action
@@ -3259,7 +3279,7 @@ local function bindValue(n, v, index, lastValue, isLocal, isSet)
     end
 end
 
-local function parseMultiVars(n1, parser, isLocal)
+function parseMultiVars(n1, parser, isLocal)
     local n2, nrest = parseVarTails(parser, isLocal)
     skipSpace()
     local v1, v2, vrest
@@ -3340,17 +3360,6 @@ local function parseMultiVars(n1, parser, isLocal)
 end
 
 local function compileExpAsAction(exp)
-    -- FAForever: mark top-level globals as exported so the vm layer can use them
-    -- for require() type inference when exportEnvDefault is active.
-    if State.hasExportEnv
-    and exp.type == 'getglobal'
-    and not exp.node
-    then
-        local currentChunk = Chunk[#Chunk]
-        if currentChunk and currentChunk.type == 'main' then
-            exp.export = true
-        end
-    end
     pushActionIntoCurrentChunk(exp)
     if GetToSetMap[exp.type] then
         skipSpace()
@@ -4515,7 +4524,7 @@ function parseAction()
         local name = exp.name
         if name then
             exp.name    = nil
-            name.type   = GetToSetMap[name.type]
+            name.type   = GetToSetMap[name.type] or name.type
             name.value  = exp
             name.vstart = exp.start
             name.range  = exp.finish
@@ -4528,13 +4537,6 @@ function parseAction()
                         start  = name.start,
                         finish = name.finish,
                     }
-                end
-            end
-            -- FAForever: mark top-level function declarations as exported
-            if State.hasExportEnv and name.type == 'setglobal' then
-                local currentChunk = Chunk[#Chunk]
-                if currentChunk and currentChunk.type == 'main' then
-                    name.export = true
                 end
             end
             pushActionIntoCurrentChunk(name)
@@ -4573,6 +4575,10 @@ local function skipFirstComment()
     end
 end
 
+local function values(t)
+    local i = 0
+    return function() i = i + 1; return t[i] end
+end
 local function parseLua()
     local main = {
         type   = 'main',
@@ -4606,6 +4612,70 @@ local function parseLua()
     main.finish = getPosition(#Lua, 'right')
     main.bfinish = main.finish
 
+    -- create a fake table and use that as the return value
+    if State.hasExportEnv then
+        local fakeExportForFa = 'fakeExportForFa'
+        local index = 0
+        --- @type vm.node
+        local returnNode = {
+            type = 'return',
+            parent = main,
+            start = -1,
+            finish = -1,
+            generatedBy = fakeExportForFa
+        }
+        local tmpTable = {
+            type = 'table',
+            parent = returnNode,
+            start = -1,
+            finish = -1,
+            generatedBy = fakeExportForFa
+        }
+        returnNode[1] = tmpTable
+        for var in values(main) do
+            if var.export then
+                local varName = var[1]
+                local field = {
+                    type = 'field',
+                    start = -1,
+                    finish = -1,
+                    [1] = varName,
+                    generatedBy = fakeExportForFa
+                }
+                local value = {
+                    type = 'getlocal',
+                    start = -1,
+                    finish = -1,
+                    node = var,
+                    [1] = varName,
+                    generatedBy = fakeExportForFa
+                }
+                if not var.ref then var.ref = {} end
+                var.ref[#var.ref+1] = value
+                
+                local tableField = {
+                    type = 'tablefield',
+                    start = -1,
+                    finish = -1,
+                    parent = tmpTable,
+                    node = tmpTable,
+                    field = field,
+                    value = value,
+                    generatedBy = fakeExportForFa
+                }
+                field.parent = tableField
+                value.parent = tableField
+
+                index = index + 1
+                tmpTable[index] = tableField
+            end
+        end
+
+        local returns = { [1] = returnNode }
+        main.returns = returns
+        main[#main+1] = returnNode
+    end
+
     return main
 end
 
@@ -4638,7 +4708,7 @@ local function initState(lua, version, options)
         state.options.nonstandardSymbol = {}
     end
     State = state
-    if version == 'Lua 5.1' or version == 'LuaJIT' then
+    if version == 'Lua 5.1' or version == 'LuaJIT' or version == 'LuaFA' then
         state.ENVMode = '@fenv'
     else
         state.ENVMode = '_ENV'

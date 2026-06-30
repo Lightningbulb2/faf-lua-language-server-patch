@@ -598,9 +598,9 @@ function m.compileStateAsync(uri, callback)
 
     ---@type brave.param.compile.options
     local options = {
-        special            = config.get(uri, 'Lua.runtime.special'),
-        unicodeName        = config.get(uri, 'Lua.runtime.unicodeName'),
-        nonstandardSymbol  = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
+        special           = config.get(uri, 'Lua.runtime.special'),
+        unicodeName       = config.get(uri, 'Lua.runtime.unicodeName'),
+        nonstandardSymbol = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
         exportEnvDefault   = config.get(uri, 'Lua.runtime.exportEnvDefault'),
     }
 
@@ -653,9 +653,9 @@ function m.compileState(uri)
 
     ---@type brave.param.compile.options
     local options = {
-        special            = config.get(uri, 'Lua.runtime.special'),
-        unicodeName        = config.get(uri, 'Lua.runtime.unicodeName'),
-        nonstandardSymbol  = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
+        special           = config.get(uri, 'Lua.runtime.special'),
+        unicodeName       = config.get(uri, 'Lua.runtime.unicodeName'),
+        nonstandardSymbol = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
         exportEnvDefault   = config.get(uri, 'Lua.runtime.exportEnvDefault'),
     }
 

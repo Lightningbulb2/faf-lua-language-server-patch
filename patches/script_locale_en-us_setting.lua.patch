@@ -1,6 +1,6 @@
---- luals-3.18.2/locale/en-us/setting.lua	2026-06-20 07:50:37.078827153 +0000
-+++ lua-language-server/locale/en-us/setting.lua	2026-06-23 06:40:48.624472796 +0000
-@@ -36,6 +36,14 @@
+--- "lua-language-server-3.18.2/locale/en-us/setting.lua"
++++ "faf-lua-language-server-patch/locale/en-us/setting.lua"
+@@ -36,6 +36,14 @@ config.runtime.plugin             =
  "Plugin path. Please read [wiki](https://luals.github.io/wiki/plugins) to learn more."
  config.runtime.pluginArgs         =
  "Additional arguments for the plugin."
@@ -15,13 +15,3 @@
  config.runtime.fileEncoding       =
  "File encoding. The `ansi` option is only available under the `Windows` platform."
  config.runtime.builtin            =
-@@ -89,6 +97,9 @@
- ]]
- config.diagnostics.workspaceEvent =
- "Set the time to trigger workspace diagnostics."
-+-- FAForever: legacy scheme disabling
-+config.diagnostics.disableScheme  =
-+"FAForever: URI schemes on which diagnostics are suppressed (e.g. `git`). Complements `enableScheme`."
- config.diagnostics.workspaceEvent.OnChange =
- "Trigger workspace diagnostics when the file is changed."
- config.diagnostics.workspaceEvent.OnSave =

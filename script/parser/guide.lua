@@ -1142,10 +1142,10 @@ end
 --- When exportEnvDefault is true, all globals are exported unless the file
 --- contains a ---@declare-global or ---@meta comment.
 --- When exportEnvDefault is false, a file must contain ---@export-env to export.
----@param state parser.state
+
 ---@return boolean
 function m.isExportEnv(state)
-    if state.options and state.options.exportEnvDefault then
+    if state.options.exportEnvDefault then
         for _, com in ipairs(state.comms) do
             if com.text == '-@declare-global' then return false end
             if com.text == '-@meta' then return false end
@@ -1155,7 +1155,7 @@ function m.isExportEnv(state)
             if com.text == '-@export-env' then return true end
         end
     end
-    return state.options and state.options.exportEnvDefault or false
+    return state.options.exportEnvDefault
 end
 
 ---是否是全局变量（包括 _G.XXX 形式）

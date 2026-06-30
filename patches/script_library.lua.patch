@@ -1,6 +1,6 @@
---- luals-3.18.2/script/library.lua	2026-06-20 07:50:37.138827155 +0000
-+++ fa-modern-ls-work/script/library.lua	2026-06-23 01:01:14.635855165 +0000
-@@ -23,7 +23,7 @@
+--- "lua-language-server-3.18.2/script/library.lua"
++++ "faf-lua-language-server-patch/script/library.lua"
+@@ -23,7 +23,7 @@ m.metaPaths = {}
  local function getDocFormater(uri)
      local version = config.get(uri, 'Lua.runtime.version')
      if client.getOption('viewDocument') then
@@ -9,7 +9,7 @@
              return 'HOVER_NATIVE_DOCUMENT_LUA51'
          elseif version == 'Lua 5.2' then
              return 'HOVER_NATIVE_DOCUMENT_LUA52'
-@@ -37,7 +37,7 @@
+@@ -37,7 +37,7 @@ local function getDocFormater(uri)
              return 'HOVER_NATIVE_DOCUMENT_LUAJIT'
          end
      else
@@ -18,7 +18,7 @@
              return 'HOVER_DOCUMENT_LUA51'
          elseif version == 'Lua 5.2' then
              return 'HOVER_DOCUMENT_LUA52'
-@@ -110,11 +110,16 @@
+@@ -110,11 +110,16 @@ local function compileSingleMetaDoc(uri, script, metaLang, status)
      middleBuf[#middleBuf+1] = ('PUSH [===[%s]===]'):format(script:sub(last))
      local middleScript = table.concat(middleBuf, '\n')
      local version, jit

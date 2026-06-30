@@ -1,29 +1,17 @@
---- luals-3.18.2/script/files.lua	2026-06-20 07:50:37.136349077 +0000
-+++ fa-modern-ls-work/script/files.lua	2026-06-18 02:08:06.533533887 +0000
-@@ -598,9 +598,10 @@
- 
-     ---@type brave.param.compile.options
-     local options = {
--        special           = config.get(uri, 'Lua.runtime.special'),
--        unicodeName       = config.get(uri, 'Lua.runtime.unicodeName'),
--        nonstandardSymbol = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
-+        special            = config.get(uri, 'Lua.runtime.special'),
-+        unicodeName        = config.get(uri, 'Lua.runtime.unicodeName'),
-+        nonstandardSymbol  = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
+--- "lua-language-server-3.18.2/script/files.lua"
++++ "faf-lua-language-server-patch/script/files.lua"
+@@ -601,6 +601,7 @@ function m.compileStateAsync(uri, callback)
+         special           = config.get(uri, 'Lua.runtime.special'),
+         unicodeName       = config.get(uri, 'Lua.runtime.unicodeName'),
+         nonstandardSymbol = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
 +        exportEnvDefault   = config.get(uri, 'Lua.runtime.exportEnvDefault'),
      }
  
      ---@type brave.param.compile
-@@ -652,9 +653,10 @@
- 
-     ---@type brave.param.compile.options
-     local options = {
--        special           = config.get(uri, 'Lua.runtime.special'),
--        unicodeName       = config.get(uri, 'Lua.runtime.unicodeName'),
--        nonstandardSymbol = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
-+        special            = config.get(uri, 'Lua.runtime.special'),
-+        unicodeName        = config.get(uri, 'Lua.runtime.unicodeName'),
-+        nonstandardSymbol  = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
+@@ -655,6 +656,7 @@ function m.compileState(uri)
+         special           = config.get(uri, 'Lua.runtime.special'),
+         unicodeName       = config.get(uri, 'Lua.runtime.unicodeName'),
+         nonstandardSymbol = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
 +        exportEnvDefault   = config.get(uri, 'Lua.runtime.exportEnvDefault'),
      }
  

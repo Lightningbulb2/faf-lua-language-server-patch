@@ -1,6 +1,6 @@
---- luals-3.18.2/script/parser/guide.lua	2026-06-20 07:50:37.142827155 +0000
-+++ fa-modern-ls-work/script/parser/guide.lua	2026-06-18 02:08:25.618746676 +0000
-@@ -1138,6 +1138,26 @@
+--- "lua-language-server-3.18.2/script/parser/guide.lua"
++++ "faf-lua-language-server-patch/script/parser/guide.lua"
+@@ -1138,6 +1138,26 @@ function m.getKeyType(obj)
      return m.getKeyTypeOfLiteral(obj)
  end
  
@@ -8,10 +8,10 @@
 +--- When exportEnvDefault is true, all globals are exported unless the file
 +--- contains a ---@declare-global or ---@meta comment.
 +--- When exportEnvDefault is false, a file must contain ---@export-env to export.
-+---@param state parser.state
++
 +---@return boolean
 +function m.isExportEnv(state)
-+    if state.options and state.options.exportEnvDefault then
++    if state.options.exportEnvDefault then
 +        for _, com in ipairs(state.comms) do
 +            if com.text == '-@declare-global' then return false end
 +            if com.text == '-@meta' then return false end
@@ -21,7 +21,7 @@
 +            if com.text == '-@export-env' then return true end
 +        end
 +    end
-+    return state.options and state.options.exportEnvDefault or false
++    return state.options.exportEnvDefault
 +end
 +
  ---是否是全局变量（包括 _G.XXX 形式）

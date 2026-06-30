@@ -299,8 +299,6 @@ local template = {
                                             )
                                             >> util.deepCopy(define.DiagnosticDefaultGroupFileStatus),
     ['Lua.diagnostics.enableScheme']        = Type.Array(Type.String) >> { 'file' },
-    -- FAForever: schemes to disable diagnostics on (complement to enableScheme)
-    ['Lua.diagnostics.disableScheme']       = Type.Array(Type.String) >> { 'git' },
     ['Lua.diagnostics.workspaceEvent']      = Type.String >> 'OnSave' << {
                                                 'OnChange',
                                                 'OnSave',
@@ -327,8 +325,6 @@ local template = {
     ['Lua.workspace.maxPreload']            = Type.Integer >> 5000,
     ['Lua.workspace.preloadFileSize']       = Type.Integer >> 500,
     ['Lua.workspace.library']               = Type.Array(Type.String),
-    -- FAForever: URI schemes handled by the workspace
-    ['Lua.workspace.supportScheme']         = Type.Array(Type.String) >> { 'file', 'untitled', 'git' },
     ['Lua.workspace.checkThirdParty']       = Type.Or(Type.String >> 'Ask' << {
                                                 'Ask',
                                                 'Apply',
