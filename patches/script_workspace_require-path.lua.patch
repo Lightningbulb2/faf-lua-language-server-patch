@@ -1,0 +1,14 @@
+--- "lua-language-server-3.18.2/script/workspace/require-path.lua"
++++ "faf-lua-language-server-patch/script/workspace/require-path.lua"
+@@ -38,10 +38,8 @@ end
+ function mt:getRequireNameByPath(path, searcher)
+     local separator    = config.get(self.scp.uri, 'Lua.completion.requireSeparator')
+     local stemPath     = path
+-                        : gsub('%.[^%.]+$', '')
+-                        : gsub('[/\\%.]+', separator)
++                        : gsub('[/\\]+', separator)
+     local stemSearcher = searcher
+-                        : gsub('%.[^%.]+$', '')
+                         : gsub('[/\\]+', separator)
+     local start        = stemSearcher:match '()%?' or 1
+     if stemPath:sub(1, start - 1) ~= stemSearcher:sub(1, start - 1) then

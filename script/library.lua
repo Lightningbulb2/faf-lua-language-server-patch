@@ -20,6 +20,15 @@ local m = {}
 
 m.metaPaths = {}
 
+---@class Config3rdParty
+---@field path string
+---@field name string
+---@field dirname string
+---@field plugin boolean
+---@field words string[]|nil
+---@field files string[]|nil
+---@field settings config.change[]
+
 local function getDocFormater(uri)
     local version = config.get(uri, 'Lua.runtime.version')
     if client.getOption('viewDocument') then
@@ -333,6 +342,7 @@ local function loadSingle3rdConfigFromLua(libraryDir)
         return nil
     end
 
+    ---@type Config3rdParty
     local cfg = {}
     for k, v in pairs(env) do
         cfg[k] = v
@@ -422,6 +432,9 @@ local function load3rdConfig(uri)
     return configs
 end
 
+---@param uri string
+---@param cfg Config3rdParty
+---@param onlyMemory boolean
 local function apply3rd(uri, cfg, onlyMemory)
     local changes = {}
     if cfg.settings then
@@ -479,6 +492,10 @@ end
 
 local hasAsked = {}
 ---@async
+---@param uri string
+---@param cfg Config3rdParty
+---@param checkThirdParty 'Apply'|'ApplyInMemory'|'Ask'|'Disable'
+---@return nil
 local function askFor3rd(uri, cfg, checkThirdParty)
     if hasAsked[cfg.name] then
         return nil
@@ -531,6 +548,9 @@ local function wholeMatch(a, b)
     return captures[1] == '' and captures[#captures] == ''
 end
 
+---@param uri string
+---@param configs Config3rdParty[]
+---@param checkThirdParty 'Apply'|'ApplyInMemory'|'Ask'|'Disable'
 local function check3rdByWords(uri, configs, checkThirdParty)
     if not files.isLua(uri) then
         return

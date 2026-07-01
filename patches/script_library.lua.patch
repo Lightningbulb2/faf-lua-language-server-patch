@@ -1,6 +1,18 @@
 --- "lua-language-server-3.18.2/script/library.lua"
 +++ "faf-lua-language-server-patch/script/library.lua"
-@@ -23,7 +23,7 @@ m.metaPaths = {}
+@@ -20,10 +20,19 @@ local m = {}
+ 
+ m.metaPaths = {}
+ 
++---@class Config3rdParty
++---@field path string
++---@field name string
++---@field dirname string
++---@field plugin boolean
++---@field words string[]|nil
++---@field files string[]|nil
++---@field settings config.change[]
++
  local function getDocFormater(uri)
      local version = config.get(uri, 'Lua.runtime.version')
      if client.getOption('viewDocument') then
@@ -9,7 +21,7 @@
              return 'HOVER_NATIVE_DOCUMENT_LUA51'
          elseif version == 'Lua 5.2' then
              return 'HOVER_NATIVE_DOCUMENT_LUA52'
-@@ -37,7 +37,7 @@ local function getDocFormater(uri)
+@@ -37,7 +46,7 @@ local function getDocFormater(uri)
              return 'HOVER_NATIVE_DOCUMENT_LUAJIT'
          end
      else
@@ -18,7 +30,7 @@
              return 'HOVER_DOCUMENT_LUA51'
          elseif version == 'Lua 5.2' then
              return 'HOVER_DOCUMENT_LUA52'
-@@ -110,11 +110,16 @@ local function compileSingleMetaDoc(uri, script, metaLang, status)
+@@ -110,11 +119,16 @@ local function compileSingleMetaDoc(uri, script, metaLang, status)
      middleBuf[#middleBuf+1] = ('PUSH [===[%s]===]'):format(script:sub(last))
      local middleScript = table.concat(middleBuf, '\n')
      local version, jit
@@ -37,3 +49,42 @@
          jit = false
      end
  
+@@ -328,6 +342,7 @@ local function loadSingle3rdConfigFromLua(libraryDir)
+         return nil
+     end
+ 
++    ---@type Config3rdParty
+     local cfg = {}
+     for k, v in pairs(env) do
+         cfg[k] = v
+@@ -417,6 +432,9 @@ local function load3rdConfig(uri)
+     return configs
+ end
+ 
++---@param uri string
++---@param cfg Config3rdParty
++---@param onlyMemory boolean
+ local function apply3rd(uri, cfg, onlyMemory)
+     local changes = {}
+     if cfg.settings then
+@@ -474,6 +492,10 @@ end
+ 
+ local hasAsked = {}
+ ---@async
++---@param uri string
++---@param cfg Config3rdParty
++---@param checkThirdParty 'Apply'|'ApplyInMemory'|'Ask'|'Disable'
++---@return nil
+ local function askFor3rd(uri, cfg, checkThirdParty)
+     if hasAsked[cfg.name] then
+         return nil
+@@ -526,6 +548,9 @@ local function wholeMatch(a, b)
+     return captures[1] == '' and captures[#captures] == ''
+ end
+ 
++---@param uri string
++---@param configs Config3rdParty[]
++---@param checkThirdParty 'Apply'|'ApplyInMemory'|'Ask'|'Disable'
+ local function check3rdByWords(uri, configs, checkThirdParty)
+     if not files.isLua(uri) then
+         return

@@ -1,6 +1,6 @@
---- luals-3.18.2/script/core/completion/completion.lua	2026-06-20 07:50:37.123065798 +0000
-+++ fa-modern-ls-work/script/core/completion/completion.lua	2026-06-23 01:01:51.086877016 +0000
-@@ -489,7 +489,7 @@
+--- "lua-language-server-3.18.2/script/core/completion/completion.lua"
++++ "faf-lua-language-server-patch/script/core/completion/completion.lua"
+@@ -489,7 +489,7 @@ local function checkFieldFromFieldToIndex(state, name, parent, word, position)
              }
          end
      else
@@ -9,3 +9,12 @@
          or config.get(state.uri, 'Lua.runtime.version') == 'LuaJIT' then
              textEdit.newText = '_G' .. textEdit.newText
          else
+@@ -1782,6 +1782,8 @@ local function tryluaDocCate(word, results)
+         'overload',
+         'deprecated',
+         'meta',
++        'export-env',
++        'declare-global',
+         'version',
+         'see',
+         'diagnostic',

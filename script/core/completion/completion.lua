@@ -1782,6 +1782,8 @@ local function tryluaDocCate(word, results)
         'overload',
         'deprecated',
         'meta',
+        'export-env',
+        'declare-global',
         'version',
         'see',
         'diagnostic',

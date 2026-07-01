@@ -1,0 +1,31 @@
+--- "lua-language-server-3.18.2/script/workspace/workspace.lua"
++++ "faf-lua-language-server-patch/script/workspace/workspace.lua"
+@@ -426,9 +426,10 @@ function m.getAbsolutePath(folderUri, path)
+ end
+ 
+ ---@param uriOrPath uri|string
++---@param startWithSlash boolean|nil
+ ---@return string
+ ---@return boolean suc
+-function m.getRelativePath(uriOrPath)
++function m.getRelativePath(uriOrPath, startWithSlash)
+     local path, uri
+     if uriOrPath:sub(1, 5) == 'file:' then
+         path = furi.decode(uriOrPath)
+@@ -444,10 +445,13 @@ function m.getRelativePath(uriOrPath)
+     end
+     local _, pos = files.normalize(path):find(furi.decode(scp.uri), 1, true)
+     if pos then
+-        return files.normalize(path:sub(pos + 1)):gsub('^[/\\]+', ''), true
+-    else
+-        return files.normalize(path):gsub('^[/\\]+', ''), false
++        path = path:sub(pos + 1)
++    end
++    path = files.normalize(path)
++    if not startWithSlash then
++        path = path:gsub('^[/\\]+', '')
+     end
++    return path, pos ~= nil
+ end
+ 
+ ---@param scp scope

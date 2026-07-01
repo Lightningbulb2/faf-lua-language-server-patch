@@ -2615,7 +2615,7 @@ local function parseFunction(declareType, isAction)
             local simple = parseSimple(name, true)
             -- treat global as local when we want to export env the type is a simple name
             -- this is to avoid picking up getField names like `function m.Function()`
-            local shouldExport = State.hasExportEnv and simple.type == 'name' and not declareType=="local"
+            local shouldExport = State.hasExportEnv and simple.type == 'name' and (declareType~="local")
             if declareType == 'local' or shouldExport then
                 if simple == name then
                     createLocal(name)
@@ -4550,6 +4550,10 @@ function parseAction()
 
     local exp = parseExp(true)
     if exp then
+        -- will be true for exported locals
+        if exp.type == 'local' then
+            return exp
+        end
         local action = compileExpAsAction(exp)
         if action then
             return action
