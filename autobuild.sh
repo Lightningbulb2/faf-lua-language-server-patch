@@ -5,14 +5,15 @@ git submodule update --init --recursive
 
 SRC="C:/development_GIT_REPOSITORIES/faf-lua-language-server-patch"
 cp -r $SRC/meta/3rd/fa-lib meta/3rd
-
 for p in "$SRC"/patches/*.patch; do
     patch -p1 < "$p"
 done
 
 cd 3rd/luamake
 cmd //c "compile\build.bat"
-cd ../../
+cd ../..
+
+cmd //c "3rd\luamake\luamake.exe rebuild"
 
 cd ..
 
