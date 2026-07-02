@@ -1313,6 +1313,35 @@ function m.getFunctionSelfNode(func)
     or parent.type == 'setfield' then
         return parent.node
     end
+    -- FAForever: fa-lib's Class/ClassUI/etc factories are invoked as
+    -- `SomeClass(Base) { Method = function(self, ...) ... end, ... }`. Here the method
+    -- function is a value inside a table constructor (`tablefield`/`tableexp`), not
+    -- defined via `function x.y()`/`function x:y()`, so there's no setfield/setmethod
+    -- node to anchor `self` to and it would otherwise stay completely untyped -- which
+    -- makes every `self:Whatever()` call inside these methods show as undefined-field,
+    -- regardless of where `Whatever` is actually defined.
+    --
+    -- Resolve `self` to the enclosing table literal so same-table fields resolve
+    -- regardless of definition order (vm.getClassFields scans a table's fields in full,
+    -- not in textual order). If that table literal is itself the sole argument of a
+    -- factory call (the `{ ... }` call-sugar, e.g. `ClassUI(Window) { ... }`), resolve to
+    -- that call instead, so `self` also picks up inherited base-class fields via the
+    -- factory's `---@return fun(specs: T): T|T_Base` generic signature.
+    if parent.type == 'tablefield'
+    or parent.type == 'tableexp' then
+        local tbl = parent.type == 'tablefield' and parent.node or parent.parent
+        if not tbl then
+            return nil
+        end
+        local tblParent = tbl.parent
+        if  tblParent
+        and tblParent.type == 'callargs'
+        and tblParent.parent
+        and tblParent.parent.type == 'call' then
+            return tblParent.parent
+        end
+        return tbl
+    end
     return nil
 end
 

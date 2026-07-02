@@ -1,0 +1,23 @@
+--- "lua-language-server-3.18.2/script/vm/visible.lua"
++++ "faf-lua-language-server-patch/script/vm/visible.lua"
+@@ -163,13 +163,14 @@ local function getEnvClass(source)
+     if not func or func.type ~= 'function' then
+         return nil
+     end
+-    local parent = func.parent
+-    if parent.type == 'setfield'
+-    or parent.type == 'setmethod' then
+-        local node = parent.node
+-        return vm.getDefinedClass(guide.getUri(source), node)
++    -- FAForever: delegate to guide.getFunctionSelfNode, which now also covers
++    -- fa-lib's Class(){...} table-literal method definitions (tablefield/tableexp),
++    -- not just setfield/setmethod.
++    local node = guide.getFunctionSelfNode(func)
++    if not node then
++        return nil
+     end
+-    return nil
++    return vm.getDefinedClass(guide.getUri(source), node)
+ end
+ 
+ ---@param parent parser.object

@@ -30,48 +30,77 @@ Only modify the C++ layer when you need new native symbols.
 | File | FA Change |
 |---|---|
 | `script/parser/compile.lua` | `hasExportEnv` flag; `.export = true` on top-level globals/functions |
-| `script/parser/guide.lua` | `isExportEnv(state)` reads per-file `---@export-env` / `---@declare-global` |
-| `script/brave/brave.lua` | Platform switch: `bee.select` (Windows) vs `bee.epoll` (Linux/macOS) |
-| `script/brave/work.lua` | Adds `exportEnvDefault` field to compile options type annotation |
-| `script/config/template.lua` | Registers `exportEnvDefault`, `disableScheme`, `supportScheme` config keys |
+| `script/parser/guide.lua` | `isExportEnv(state)` reads per-file `---@export-env` / `---@declare-global`; `getFunctionSelfNode(func)` — resolves `self` inside a table-literal method to the enclosing class table (see below) |
+| `script/config/template.lua` | Registers the `Lua.runtime.exportEnvDefault` config key |
 | `script/files.lua` | Passes `exportEnvDefault` from config to compiler options |
-| `script/provider/diagnostic.lua` | `disableScheme` filtering in the diagnostic provider |
-| `script/provider/provider.lua` | `supportScheme` guard on `didOpen` / `didChange` |
-| `locale/en-us/setting.lua` | Descriptions for the three new settings |
-| `script/core/diagnostics/undefined-field.lua` | Suppress `undefined-field` inside `__init` / `__post_init` function bodies |
+| `script/vm/compiler.lua` | Uses `getFunctionSelfNode` for un-annotated `self`; **`vm.getClassFields` now also merges fields from the FA class-factory call-sugar pattern** (`Factory(Base) { ... }`) — see below |
+| `locale/en-us/setting.lua` | Description for `exportEnvDefault` (note: `disableScheme` / `supportScheme` strings already exist in *stock* LuaLS and are not FA additions) |
+| `meta/3rd/fa-lib/config.json` | 3rd-party library config: sets `Lua.runtime.version = "LuaFA"`, registers `moho` as a global, and disables the `inject-field` diagnostic |
+
+> **Corrected from an earlier draft of this doc:** previous versions of this file described
+> patches to `script/brave/brave.lua`, `script/brave/work.lua`, `script/provider/diagnostic.lua`,
+> `script/provider/provider.lua`, `script/core/diagnostics/undefined-field.lua`, and
+> `meta/3rd/fa/config.lua`. **None of those files exist in this patch package** — they were
+> either never implemented or lost from an earlier snapshot. `disableScheme`/`supportScheme`
+> are in fact stock LuaLS settings, not FA additions, and were never wired to anything FA-specific.
+> The `undefined-field`-inside-`__init` and `inject-field` sections below have been rewritten
+> to describe what is *actually* in this package, plus a real fix for the `__init` bug that
+> was previously only documented as a TODO.
 
 ---
 
 ## FA Class System: `__init` and `inject-field` Diagnostics
 
-### `undefined-field` inside `__init` / `__post_init`
+### `undefined-field` on sibling-method calls (e.g. inside `__init`)
 
 **Symptom:**
 ```
 Undefined field `SetupDragHandles`. Lua Diagnostics.(undefined-field)
 (field) UIChatInterface.SetupDragHandles: unknown
 ```
-fired on `self:SetupDragHandles()` (or any sibling-method call) inside `__init`.
+fired on `self:SetupDragHandles()` (or any sibling-method call) inside `__init`, `__post_init`,
+or any other method — **specifically when that method carries an explicit**
+**`---@param self UIChatInterface` doc comment** (FA's own code style annotates `self` this way
+almost everywhere, so this bug fires very broadly in practice).
 
-**Root cause:** When a user annotates `---@param self UIChatInterface` inside `__init`,
-LuaLS checks whether `UIChatInterface` has `SetupDragHandles`. If `UIChatInterface` was
-declared via a standalone `---@class UIChatInterface : Window` somewhere without a full
-`---@field` for every method, those methods appear as `unknown` fields. The class table
-literal itself *does* have all the methods, but LuaLS's generic `T` inference for the
-`ClassUI(Base) { ... }` pattern does not always flow the full method set into a separately-
-declared `---@class` name.
+**Root cause (confirmed by tracing `vm.getClassFields` in `script/vm/compiler.lua`):**
+`UIChatInterface` is declared as `---@class UIChatInterface : Window` immediately above
+`local ChatInterface = ClassUI(Window) { __init = ..., SetupDragHandles = ..., ... }`.
+When LuaLS resolves the fields of a `---@class`, it looks at `set.bindSource.value`
+(the expression initializing the annotated local) and merges in that expression's own
+fields — but stock LuaLS **only recognizes two shapes** for that expression:
+1. a bare table constructor: `local X = { ... }`
+2. `local X = setmetatable({ ... }, mt)`
 
-**Fix:** `script/core/diagnostics/undefined-field.lua` — patch adds `isInsideFAInit(src)`
-which walks up the AST: `src → getParentFunction → function.parent (tablefield)` and
-checks whether the tablefield key is `__init` or `__post_init`. When true, the
-`undefined-field` check is skipped entirely for that node.
+`ClassUI(Window) { ... }` is neither — it's `(ClassUI(Window))({ ... })`, a plain function
+call whose sole argument happens to be the spec table. Stock LuaLS's merge logic never
+matches this shape, so `UIChatInterface`'s field set falls back to *only* the explicit
+`---@field` entries in the class doc comment — which, in FA's ported meta stubs, never
+include methods. `SetupDragHandles` genuinely isn't part of the class as LuaLS sees it,
+hence "undefined field."
 
-**Why this scope is safe:** The suppression only fires when the *direct* enclosing
-function is a table field named `__init` or `__post_init`. Normal method bodies, top-
-level code, and anonymous functions are unaffected. The check still fires for genuinely
-missing fields in any other context.
+This is independent of *ordering* inside the table literal — even fields defined earlier
+than `__init` are invisible, because the merge never happens at all in this shape, not
+because of a definition-order limitation. (The `getFunctionSelfNode` patch in
+`parser/guide.lua` / `vm/compiler.lua` *does* correctly resolve `self` for methods that
+have **no** explicit `---@param self X` annotation, by typing `self` from the call
+expression directly, which does carry the full generic-inferred field set. But an explicit
+`---@param self UIChatInterface` overrides that inference back to the incomplete nominal
+class, which is why the bug still shows up constantly in code that follows FA's
+convention of always annotating `self`.)
 
-**Patch file:** `patches/script_core_diagnostics_undefined-field.lua.patch`
+**Fix (implemented in this package):** `vm.getClassFields` in `script/vm/compiler.lua` now
+has a third branch alongside the bare-table and `setmetatable` cases: if the bound
+expression is a call whose *last argument* is a table literal, that table is merged as the
+class's fields, regardless of which function is being called. This covers
+`Class{...}`, `ClassUI(Base){...}`, `ClassShield(Base){...}`, `State{...}`, etc. uniformly,
+and resolves fields from the whole table regardless of textual position — so order relative
+to `__init` genuinely no longer matters, and no diagnostic-suppression band-aid is needed;
+`UIChatInterface` now actually *has* `SetupDragHandles` as a known field, and a genuine typo
+(e.g. `self:SetuDragHandles()`) will still correctly report `undefined-field`.
+
+**Patch file:** `patches/script_vm_compiler.lua.patch` (regenerated; now contains both the
+`getFunctionSelfNode` hunk and the `getClassFields` hunk).
 
 ---
 
@@ -89,32 +118,73 @@ self.DragTL          = Bitmap(self)       -- DragTL : bitmap_methods (engine typ
 self.DragTL.textures = DragHandleTextures('ul')  -- inject-field fires here
 ```
 `DragTL` resolves to `Bitmap` (from the FA stubs). `inject-field` fires because `textures`
-is not declared as a `---@field` on `Bitmap`, and the engine C++ class is closed — you
-cannot add fields to the stub definitions without lying about the engine's actual type.
+is not declared as a `---@field` on `Bitmap`, and the engine C++ class is closed. This is
+not an error — FA uses this pattern everywhere — and the diagnostic adds no value in an
+FA codebase.
 
-This is not an error. FA uses this pattern everywhere: caching computed values, attaching
-controller tables, storing child references. The engine does not care; Lua's metatable
-system allows arbitrary field injection on any table. The diagnostic is purely a LuaLS
-type-purity check.
+**Fix that is actually shipped:** `meta/3rd/fa-lib/config.json` (not `config.lua` — that
+file never existed) already contains:
+```json
+"Lua.diagnostics.disable": [ "inject-field" ]
+```
+This is correct and, once the `fa-lib` 3rd-party library is actually *applied* to a
+workspace, it disables `inject-field` globally for that workspace via the standard
+`Config3rdParty` → `apply3rd` mechanism (`action = 'add'` onto `Lua.diagnostics.disable`).
 
-**Fix:** Disable `inject-field` globally for FA files via `meta/3rd/fa/config.lua`:
+**Why the screenshot still shows it firing:** a 3rd-party library's `config.json` only
+takes effect once VS Code / the client "applies" it — either the user accepted the
+"still queries" popup, `Lua.workspace.checkThirdParty` is set to `"Apply"`, or the words
+in `cfg.words` are matched against open file text via `check3rdByWords`/`wholeMatch`. That
+last path has a real bug: `wholeMatch` requires the *entire* matched capture to be an empty
+string —
 ```lua
+local function wholeMatch(a, b)
+    local captures = { a:match(b) }
+    return captures[1] == '' and captures[#captures] == ''
+end
+```
+Tested directly against Lua 5.4: neither the FA config's `"words": ["."]` nor even LuaLS's
+*own* documented example word pattern (`require[%s%(\"']+MAA[%)\"']`) ever satisfies this —
+`a:match(b)` returns the matched substring itself when `b` has no capture groups, which is
+never `''` for a real match. This is stock (unpatched-by-FA) LuaLS code, so it isn't
+something this package can safely patch, but it does mean **auto-detection of `fa-lib`
+should not be relied on** — if `checkThirdParty` isn't set to `"Apply"`, the popup was
+dismissed, or was never shown, none of `fa-lib/config.json`'s settings apply, including the
+`inject-field` disable, the `moho` global, and `Lua.runtime.version = "LuaFA"` itself.
+
+**Reliable workaround:** set these directly in the project's own `.luarc.json` /
+`.vscode/settings.json` rather than relying on auto-detection:
+```json
 {
-    key    = 'Lua.diagnostics.disable',
-    action = 'add',
-    value  = 'inject-field',
-},
+  "Lua.workspace.library": ["<path-to-lua-language-server>/meta/3rd/fa-lib/library"],
+  "Lua.runtime.version": "LuaFA",
+  "Lua.diagnostics.globals": ["moho"],
+  "Lua.diagnostics.disable": ["inject-field"],
+  "Lua.runtime.nonstandardSymbol": ["continue", "!="],
+  "Lua.runtime.exportEnvDefault": true
+}
 ```
 
-**Why global disable is correct here:** Unlike `undefined-field` (which is often a real
-typo), `inject-field` on FA code is almost always intentional. The FA engine type stubs
-cover ~700 files; annotating every runtime field injection with `---@class` overrides
-or `---@type` casts would be thousands of lines of noise annotations. The diagnostic
-adds no value in an FA codebase.
+---
 
-**Patch file:** `patches/meta_3rd_fa_config.lua.patch`
+### `table` not resolving in `table.getn` (and other FA stdlib overrides)
+
+`meta/3rd/fa-lib/library/stdlib/table.lua` adds `table.getn` (removed from stock Lua by
+5.2, but present in FA's runtime) as an augmentation onto the *existing* `table` global —
+it does not redeclare `table` itself, which is correct and mirrors how the official addons
+extend built-in libraries. If `table.getn` (or `table` itself) isn't resolving, this is the
+same root cause as the `inject-field` case above: `meta/3rd/fa-lib/library` never got added
+to `Lua.workspace.library`, so none of FA's stdlib overrides are visible, and depending on
+whether `Lua.runtime.version` also failed to apply as `"LuaFA"`, the workspace may be
+falling back to a stock Lua 5.4/5.5 runtime, whose official meta doesn't define `table.getn`
+at all (it was removed in 5.2). The `.luarc.json` snippet above should resolve this too. If
+`table` itself (not just `.getn`) is still flagged as unrecognized after adding that config,
+that would point to something more specific — worth sharing the exact diagnostic message/
+hover text on `table` if it persists, since "table itself undefined" is a stronger symptom
+than a missing-field warning and would need to be traced separately.
 
 ---
+
 
 ## The `_ENV = nil` Constraint
 
@@ -436,8 +506,10 @@ Run `./3rd/luamake/luamake rebuild` to verify before packaging.
 
 ### `module 'bee.epoll' not found` on Windows
 
-`brave.lua` was calling `require 'bee.epoll'` unconditionally. Ensure the platform
-check is present:
+`script/brave/brave.lua` is **not included in this patch package** (verified: it's
+byte-identical to stock LuaLS, which calls `require 'bee.epoll'` unconditionally at the
+top of the file). This will fail on Windows, where only `bee.select` is available. This
+needs a platform check but does not currently have one shipped in this snapshot:
 ```lua
 if platform.os == 'windows' then
     poller_lib = require 'bee.select'   -- SELECT_READ flag
@@ -445,6 +517,8 @@ else
     poller_lib = require 'bee.epoll'    -- EPOLLIN flag
 end
 ```
+If you're building for Windows and hit this, this fix needs to be (re-)written and added
+to `script/brave/brave.lua` plus a corresponding `patches/script_brave_brave.lua.patch`.
 
 ### Blank outline / grayed-out symbols
 
@@ -476,10 +550,11 @@ Use explicit `.a` file paths in the link command instead.
 3. Verify these functions still exist with the same signatures:
    - `compileExpAsAction` in `compile.lua`
    - Function name handler block in `parseAction` in `compile.lua`
-   - `isValid` function in `provider/diagnostic.lua`
-   - `textDocument/didOpen` and `textDocument/didChange` in `provider/provider.lua`
-   - `checkUndefinedField` inner function in `core/diagnostics/undefined-field.lua`
-     (specifically: the `if vm.hasDef(src) then return end` block that our FA guard follows)
+   - `vm.getClassFields` in `vm/compiler.lua` — specifically the `setmetatable`
+     branch inside the `src.value.type == 'select' and src.value.vararg.type == 'call'`
+     block, which our call-sugar branch sits directly after
+   - `getFunctionSelfNode` usage in `vm/compiler.lua`'s self-node resolution, and its
+     definition in `parser/guide.lua`
    - The `if token == '//' or token == '<<' or token == '>>'` block in `parseBinaryOP`
      in `compile.lua` — confirm our `and State.version ~= 'LuaFA'` line is still present
      and that LuaLS hasn't moved or restructured this version guard.

@@ -1,0 +1,15 @@
+--- "lua-language-server-3.18.2/script/core/document-symbol.lua"
++++ "faf-lua-language-server-patch/script/core/document-symbol.lua"
+@@ -312,6 +312,12 @@ local function buildBlock(source, sub, used, symbols)
+ end
+ 
+ local function buildSource(source, sub, used, symbols)
++    -- FAForever: skip synthetic nodes injected by the parser (e.g. the fake
++    -- export-table return statement used for `---@export-env` files). These
++    -- are not real source text and must never become outline symbols.
++    if source.generatedBy then
++        return
++    end
+     if     source.type == 'local'
+     or     source.type == 'setlocal'
+     or     source.type == 'setglobal'

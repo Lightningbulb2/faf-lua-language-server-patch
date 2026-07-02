@@ -1,0 +1,68 @@
+--- "lua-language-server-3.18.2/script/vm/compiler.lua"
++++ "faf-lua-language-server-patch/script/vm/compiler.lua"
+@@ -589,6 +589,44 @@ function vm.getClassFields(suri, object, key, pushResult)
+                                 end
+                             end)
+                         end
++                        -- FAForever: fa-lib's Class/ClassUI/ClassShield/ClassProjectile/
++                        -- State factories are invoked as `Factory(Base) { field = fn, ... }`,
++                        -- which is call-sugar for `Factory(Base)({ field = fn, ... })`.
++                        -- When `---@class Foo` sits on `local Foo = Factory(Base) { ... }`,
++                        -- `set.bindSource.value` is this outer call -- not a bare table and
++                        -- not a `setmetatable(...)` call -- so neither branch above ever
++                        -- fires, and every field written inline in the `{ ... }` spec
++                        -- (including methods like `SetupDragHandles`) stays invisible to
++                        -- `Foo`'s field set. That in turn makes `self:SetupDragHandles()`
++                        -- report `undefined-field` from inside any sibling method that
++                        -- carries an explicit `---@param self Foo` annotation, since that
++                        -- annotation re-resolves `self` to this same (incomplete) class,
++                        -- bypassing the `self`-typing fix in `getFunctionSelfNode`
++                        -- (parser/guide.lua) entirely.
++                        --
++                        -- Generalize the setmetatable case: if the call's last argument is
++                        -- a table literal, treat it as the spec table regardless of which
++                        -- function is being called. This covers `Class{...}`,
++                        -- `ClassUI(Base){...}`, `State{...}`, `ClassShield(Base){...}`, etc.
++                        -- uniformly, and fields resolve from the whole table regardless of
++                        -- their textual position (so order relative to `__init` no longer
++                        -- matters).
++                        if  func.special ~= 'setmetatable'
++                        and args
++                        and args[#args]
++                        and args[#args].type == 'table' then
++                            local specs = args[#args]
++                            searchFieldSwitch('table', suri, specs, key, function (field)
++                                local fieldKey = guide.getKeyName(field)
++                                if fieldKey then
++                                    if  not searchedFields[fieldKey]
++                                    and guide.isAssign(field) then
++                                        hasFounded[fieldKey] = true
++                                        pushResult(field, true)
++                                    end
++                                end
++                            end)
++                        end
+                     end
+                 end
+             end
+@@ -1518,14 +1556,17 @@ local function compileLocal(source)
+     end
+ 
+     -- function x.y(self, ...) --> function x:y(...)
++    -- FAForever: also covers `Class(Base) { Method = function(self, ...) ... end }`
++    -- table-literal method definitions via guide.getFunctionSelfNode's extended handling.
+     if  source[1] == 'self'
+     and not hasMarkDoc
+     and source.parent.type == 'funcargs'
+     and source.parent[1] == source then
+-        local setfield = source.parent.parent.parent
+-        if setfield.type == 'setfield' then
++        local func = source.parent.parent
++        local selfTarget = guide.getFunctionSelfNode(func)
++        if selfTarget then
+             hasMarkParam = true
+-            vm.setNode(source, vm.compileNode(setfield.node))
++            vm.setNode(source, vm.compileNode(selfTarget))
+         end
+     end
+     if source.parent.type == 'funcargs' and not hasMarkDoc and not hasMarkParam then

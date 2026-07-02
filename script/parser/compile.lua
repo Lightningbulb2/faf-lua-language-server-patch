@@ -4619,20 +4619,26 @@ local function parseLua()
     -- create a fake table and use that as the return value
     if State.hasExportEnv then
         local fakeExportForFa = 'fakeExportForFa'
+        -- FAForever: use main.finish (a real, valid document offset) instead of -1 for
+        -- every synthetic node's start/finish. `-1` used to sort before every real symbol
+        -- once fed through guide.eachSource, which broke position-sensitive features that
+        -- assume ascending, in-bounds ranges (e.g. document-symbol's outline packing bails
+        -- out immediately when it sees a range below its lower bound).
+        local fakePos = main.finish
         local index = 0
         --- @type vm.node
         local returnNode = {
             type = 'return',
             parent = main,
-            start = -1,
-            finish = -1,
+            start = fakePos,
+            finish = fakePos,
             generatedBy = fakeExportForFa
         }
         local tmpTable = {
             type = 'table',
             parent = returnNode,
-            start = -1,
-            finish = -1,
+            start = fakePos,
+            finish = fakePos,
             generatedBy = fakeExportForFa
         }
         returnNode[1] = tmpTable
@@ -4641,15 +4647,15 @@ local function parseLua()
                 local varName = var[1]
                 local field = {
                     type = 'field',
-                    start = -1,
-                    finish = -1,
+                    start = fakePos,
+                    finish = fakePos,
                     [1] = varName,
                     generatedBy = fakeExportForFa
                 }
                 local value = {
                     type = 'getlocal',
-                    start = -1,
-                    finish = -1,
+                    start = fakePos,
+                    finish = fakePos,
                     node = var,
                     [1] = varName,
                     generatedBy = fakeExportForFa
@@ -4659,8 +4665,8 @@ local function parseLua()
                 
                 local tableField = {
                     type = 'tablefield',
-                    start = -1,
-                    finish = -1,
+                    start = fakePos,
+                    finish = fakePos,
                     parent = tmpTable,
                     node = tmpTable,
                     field = field,
