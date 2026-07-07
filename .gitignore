@@ -1,1 +1,4 @@
 .vscode
+autobuild.sh
+autobuildwin.bat
+luamakewinbuild.bat

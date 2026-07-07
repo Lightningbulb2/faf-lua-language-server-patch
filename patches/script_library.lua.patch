@@ -1,6 +1,6 @@
 --- "lua-language-server-3.18.2/script/library.lua"
 +++ "faf-lua-language-server-patch/script/library.lua"
-@@ -20,10 +20,19 @@ local m = {}
+@@ -20,10 +20,19 @@
  
  m.metaPaths = {}
  
@@ -21,7 +21,7 @@
              return 'HOVER_NATIVE_DOCUMENT_LUA51'
          elseif version == 'Lua 5.2' then
              return 'HOVER_NATIVE_DOCUMENT_LUA52'
-@@ -37,7 +46,7 @@ local function getDocFormater(uri)
+@@ -37,7 +46,7 @@
              return 'HOVER_NATIVE_DOCUMENT_LUAJIT'
          end
      else
@@ -30,7 +30,7 @@
              return 'HOVER_DOCUMENT_LUA51'
          elseif version == 'Lua 5.2' then
              return 'HOVER_DOCUMENT_LUA52'
-@@ -110,11 +119,16 @@ local function compileSingleMetaDoc(uri, script, metaLang, status)
+@@ -110,11 +119,16 @@
      middleBuf[#middleBuf+1] = ('PUSH [===[%s]===]'):format(script:sub(last))
      local middleScript = table.concat(middleBuf, '\n')
      local version, jit
@@ -49,7 +49,58 @@
          jit = false
      end
  
-@@ -328,6 +342,7 @@ local function loadSingle3rdConfigFromLua(libraryDir)
+@@ -193,6 +207,50 @@
+         log.debug('MiddleScript:\n', middleScript)
+     end
+     local text = table.concat(compileBuf)
++
++    -- FAForever: a few builtin functions (`table.getn`, `table.foreach`,
++    -- `table.foreachi`) carry a *hardcoded* `---@deprecated` line in the
++    -- template -- not one emitted by `ALIVE`/`@version` -- so it survives into
++    -- every generated runtime, LuaFA included, even though FA's Lua 5.0/5.1
++    -- runtime supports them natively. The `stdlib/*.lua` overrides in fa-lib
++    -- fix this, but only when the *entire* library dir is on
++    -- `Lua.workspace.library`; under other layouts (`userThirdParty`, partial
++    -- scans) those overrides may not load, and the strikethrough returns.
++    -- Fix it at the source instead: when generating LuaFA meta, drop a
++    -- hardcoded `---@deprecated` from any declaration whose annotation block
++    -- also carries `---@version <5.1` (i.e. the symbol is alive in 5.1, and
++    -- therefore in LuaFA). Symbols deprecated by `@version` alone are already
++    -- handled by `vm.getValidVersions`; this only touches the hardcoded tag.
++    if runtimeVer == 'LuaFA' then
++        -- Lua patterns can't repeat a capture group, so scan line by line:
++        -- within a single annotation block (a run of consecutive `---` lines),
++        -- if the block declares `---@version ...<5.1...` then a *hardcoded*
++        -- `---@deprecated` line in that same block is dropped. Blank or code
++        -- lines reset the block, so an unrelated later `---@deprecated` is
++        -- never touched. Only affects the three 5.0/5.1-native builtins
++        -- (`table.getn`/`foreach`/`foreachi`) that hardcode the tag;
++        -- `@version`-only deprecations are handled by `vm.getValidVersions`.
++        local outLines = {}
++        local blockAliveIn51 = false
++        for line in (text .. '\n'):gmatch('([^\n]*)\n') do
++            local isDoc = line:match('^%s*%-%-%-')
++            if isDoc then
++                if line:match('^%s*%-%-%-@version') and line:match('<%s*5%.1') then
++                    blockAliveIn51 = true
++                end
++                if blockAliveIn51 and line:match('^%s*%-%-%-@deprecated%s*$') then
++                    -- skip this line
++                else
++                    outLines[#outLines+1] = line
++                end
++            else
++                outLines[#outLines+1] = line
++                blockAliveIn51 = false
++            end
++        end
++        text = table.concat(outLines, '\n')
++    end
++
+     if disable and status == 'default' then
+         return text, false
+     end
+@@ -328,6 +386,7 @@
          return nil
      end
  
@@ -57,7 +108,7 @@
      local cfg = {}
      for k, v in pairs(env) do
          cfg[k] = v
-@@ -417,6 +432,9 @@ local function load3rdConfig(uri)
+@@ -417,6 +476,9 @@
      return configs
  end
  
@@ -67,7 +118,7 @@
  local function apply3rd(uri, cfg, onlyMemory)
      local changes = {}
      if cfg.settings then
-@@ -474,6 +492,10 @@ end
+@@ -474,6 +536,10 @@
  
  local hasAsked = {}
  ---@async
@@ -78,7 +129,7 @@
  local function askFor3rd(uri, cfg, checkThirdParty)
      if hasAsked[cfg.name] then
          return nil
-@@ -526,6 +548,9 @@ local function wholeMatch(a, b)
+@@ -526,6 +592,9 @@
      return captures[1] == '' and captures[#captures] == ''
  end
  

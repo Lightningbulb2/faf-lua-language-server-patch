@@ -2380,6 +2380,26 @@ local function resolveName(node)
     local var = getVariable(node[1], node.start)
     local nextToken = Tokens[Index + 1]
     if (not var and nextToken == '=' and State.hasExportEnv) then
+        if State.parsingVarTails then
+            -- FAForever: undeclared export-env name appearing as a *tail* target
+            -- of a multiple assignment (e.g. `a, b, c, windowGroup = f()`).
+            -- Create the exported local, but let the enclosing parseMultiVars own
+            -- the `=`/RHS binding: we return a get* node (bindValue converts it to
+            -- a set*), so we neither double-consume the assignment nor drop the
+            -- export. Fixes the spurious EXP_IN_ACTION + mis-bound leading targets.
+            local loc = createLocal({
+                start  = node.start,
+                finish = node.finish,
+                [1]    = node[1],
+            })
+            loc.export = true
+            pushActionIntoCurrentChunk(loc)
+            node.type = 'getlocal'
+            node.node = loc
+            loc.ref = loc.ref or {}
+            loc.ref[#loc.ref+1] = node
+            return node
+        end
         var = createLocal(node)
         var.export = true
         pushActionIntoCurrentChunk(var)
@@ -3280,7 +3300,15 @@ local function bindValue(n, v, index, lastValue, isLocal, isSet)
 end
 
 function parseMultiVars(n1, parser, isLocal)
+    -- FAForever: mark that we are parsing the *tail* targets of a (possibly
+    -- multiple) assignment. resolveName uses this so that an undeclared
+    -- export-env name that happens to be the last LHS target does not greedily
+    -- consume the `=`/RHS itself (which desynced this outer parse and produced a
+    -- spurious EXP_IN_ACTION while mis-binding the leading targets).
+    local prevParsingVarTails = State.parsingVarTails
+    State.parsingVarTails = true
     local n2, nrest = parseVarTails(parser, isLocal)
+    State.parsingVarTails = prevParsingVarTails
     skipSpace()
     local v1, v2, vrest
     local isSet
@@ -4618,6 +4646,66 @@ local function parseLua()
 
     -- create a fake table and use that as the return value
     if State.hasExportEnv then
+        -- FAForever: rebind forward references to exported "globals".
+        -- Export-env turns a top-level `Foo = ...` / `function Foo() end`
+        -- into a *local*, but locals are position-scoped: any reference that
+        -- appears textually before the declaration was parsed as
+        -- getglobal/setglobal (bound to _ENV) and never sees the local. In FA
+        -- modules that's completely legal -- a function defined at the top of
+        -- the file may call one defined at the bottom, since bodies only run
+        -- after the whole module has executed -- so those references were
+        -- producing bogus `undefined-global` diagnostics with no type info.
+        -- Now that the whole chunk is parsed we know every exported local,
+        -- so walk _ENV's refs and rebind the ones that match by name.
+        -- NOTE: _ENV = nil in this file; no ipairs/pairs/next here.
+        do
+            local exported      = {}
+            local exportedCount = 0
+            for var in values(main) do
+                if var.export and var[1] and not exported[var[1]] then
+                    exported[var[1]] = var
+                    exportedCount = exportedCount + 1
+                end
+            end
+            local envLocal
+            if main.locals then
+                for i = 1, #main.locals do
+                    if main.locals[i].tag == '_ENV' then
+                        envLocal = main.locals[i]
+                        break
+                    end
+                end
+            end
+            if exportedCount > 0 and envLocal and envLocal.ref then
+                local keptRefs = {}
+                local keptN    = 0
+                for i = 1, #envLocal.ref do
+                    local ref = envLocal.ref[i]
+                    local var
+                    if  not ref.special
+                    and (ref.type == 'getglobal' or ref.type == 'setglobal') then
+                        var = exported[ref[1]]
+                    end
+                    if var then
+                        if ref.type == 'getglobal' then
+                            ref.type = 'getlocal'
+                        else
+                            ref.type = 'setlocal'
+                        end
+                        ref.node = var
+                        if not var.ref then
+                            var.ref = {}
+                        end
+                        var.ref[#var.ref+1] = ref
+                    else
+                        keptN = keptN + 1
+                        keptRefs[keptN] = ref
+                    end
+                end
+                envLocal.ref = keptRefs
+            end
+        end
+
         local fakeExportForFa = 'fakeExportForFa'
         -- FAForever: use main.finish (a real, valid document offset) instead of -1 for
         -- every synthetic node's start/finish. `-1` used to sort before every real symbol

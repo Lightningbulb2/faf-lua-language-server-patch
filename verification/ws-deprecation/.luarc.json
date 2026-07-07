@@ -1,0 +1,4 @@
+{
+  "workspace.userThirdParty": ["<path-to>/meta/3rd"],
+  "runtime.version": "LuaFA"
+}

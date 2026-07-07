@@ -4,7 +4,7 @@ bin = $builddir/bin
 obj = $builddir/obj
 cc = x86_64-w64-mingw32-gcc
 ar = x86_64-w64-mingw32-ar
-luamake = /home/claude/fa-merge/fa-modern-ls-work/3rd/luamake/luamake
+luamake = /your/path/to/lua-language-server/3rd/luamake/luamake
 rule configure
   command = $luamake init -help
   generator = 1
@@ -101,6 +101,8 @@ build $obj/source_bee/lua_debugging.obj: cxx_source_bee_3 $
     3rd/bee.lua/binding/lua_debugging.cpp
 build $obj/source_bee/lua_windows.obj: cxx_source_bee_3 $
     3rd/bee.lua/binding/port/lua_windows.cpp
+build $obj/source_bee/lua_epoll.obj: cxx_source_bee_3 $
+    3rd/bee.lua/binding/lua_epoll.cpp
 build $obj/source_bee/lua_filesystem.obj: cxx_source_bee_3 $
     3rd/bee.lua/binding/lua_filesystem.cpp
 build $obj/source_bee/lua_filewatch.obj: cxx_source_bee_3 $
@@ -301,7 +303,7 @@ build $bin/bootstrap: link_bootstrap $obj/source_bee/lua-seri.obj $
     $obj/source_bee/spinlock.obj $obj/source_bee/version.obj $
     $obj/source_bee/bee_newstate.obj $obj/source_bee/lua_channel.obj $
     $obj/source_bee/lua_crash.obj $obj/source_bee/lua_debugging.obj $
-    $obj/source_bee/lua_windows.obj $obj/source_bee/lua_filesystem.obj $
+    $obj/source_bee/lua_windows.obj $obj/source_bee/lua_epoll.obj $obj/source_bee/lua_filesystem.obj $
     $obj/source_bee/lua_filewatch.obj $obj/source_bee/lua_platform.obj $
     $obj/source_bee/lua_select.obj $obj/source_bee/lua_serialization.obj $
     $obj/source_bee/lua_socket.obj $obj/source_bee/lua_subprocess.obj $
@@ -366,7 +368,7 @@ build $bin/lua-language-server.exe: link_lua_language_server $
     $obj/source_bee/spinlock.obj $obj/source_bee/version.obj $
     $obj/source_bee/bee_newstate.obj $obj/source_bee/lua_channel.obj $
     $obj/source_bee/lua_crash.obj $obj/source_bee/lua_debugging.obj $
-    $obj/source_bee/lua_windows.obj $obj/source_bee/lua_filesystem.obj $
+    $obj/source_bee/lua_windows.obj $obj/source_bee/lua_epoll.obj $obj/source_bee/lua_filesystem.obj $
     $obj/source_bee/lua_filewatch.obj $obj/source_bee/lua_platform.obj $
     $obj/source_bee/lua_select.obj $obj/source_bee/lua_serialization.obj $
     $obj/source_bee/lua_socket.obj $obj/source_bee/lua_subprocess.obj $

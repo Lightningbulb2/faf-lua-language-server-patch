@@ -1143,16 +1143,43 @@ end
 --- contains a ---@declare-global or ---@meta comment.
 --- When exportEnvDefault is false, a file must contain ---@export-env to export.
 
+--- The comment text of `---@meta` arrives here as `-@meta` (the leading `--`
+--- is stripped by the tokenizer). Directives may carry a payload
+--- (`---@meta string` -- every builtin meta file generated from
+--- meta/template does since LuaLS 3.6!) or trailing whitespace, so this must
+--- prefix-match with a word boundary rather than compare for exact equality.
+--- An exact-equality check here silently failed to recognize the builtin
+--- `string`/`table`/... meta files as meta, which let export-env convert
+--- `string = {}` into a *local* and made the entire standard library
+--- undefined-global everywhere.
+---@param text string
+---@param directive string
+---@return boolean
+local function commentIsDirective(text, directive)
+    if type(text) ~= 'string' then
+        return false
+    end
+    if text:sub(1, #directive) ~= directive then
+        return false
+    end
+    local nextChar = text:sub(#directive + 1, #directive + 1)
+    return nextChar == '' or nextChar:match('%s') ~= nil
+end
+
 ---@return boolean
 function m.isExportEnv(state)
     if state.options.exportEnvDefault then
-        for _, com in ipairs(state.comms) do
-            if com.text == '-@declare-global' then return false end
-            if com.text == '-@meta' then return false end
+        for _, com in ipairs(state.comms or {}) do
+            if commentIsDirective(com.text, '-@declare-global')
+            or commentIsDirective(com.text, '-@meta') then
+                return false
+            end
         end
     else
         for _, com in ipairs(state.comms or {}) do
-            if com.text == '-@export-env' then return true end
+            if commentIsDirective(com.text, '-@export-env') then
+                return true
+            end
         end
     end
     return state.options.exportEnvDefault

@@ -1,0 +1,28 @@
+{
+  "workspace.library": [
+    "<path-to>/meta/3rd/fa-lib/library"
+  ],
+  "runtime.version": "LuaFA",
+  "runtime.special": {
+    "import": "require"
+  },
+  "runtime.pathStrict": false,
+  "runtime.path": [
+    "/?"
+  ],
+  "completion.requireSeparator": "/",
+  "runtime.nonstandardSymbol": [
+    "continue",
+    "!="
+  ],
+  "runtime.exportEnvDefault": true,
+  "diagnostics.globals": [
+    "moho"
+  ],
+  "diagnostics.neededFileStatus": {
+    "undefined-field": "Any"
+  },
+  "diagnostics.disable": [
+    "inject-field"
+  ]
+}

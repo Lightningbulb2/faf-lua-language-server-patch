@@ -1,6 +1,6 @@
 --- "lua-language-server-3.18.2/script/parser/luadoc.lua"
 +++ "faf-lua-language-server-patch/script/parser/luadoc.lua"
-@@ -1364,6 +1364,22 @@ local docSwitch = util.switch()
+@@ -1364,6 +1364,22 @@
          meta.name = parseName('doc.meta.name', meta)
          return meta
      end)

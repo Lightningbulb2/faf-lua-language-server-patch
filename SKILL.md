@@ -29,13 +29,18 @@ Only modify the C++ layer when you need new native symbols.
 
 | File | FA Change |
 |---|---|
-| `script/parser/compile.lua` | `hasExportEnv` flag; `.export = true` on top-level globals/functions |
-| `script/parser/guide.lua` | `isExportEnv(state)` reads per-file `---@export-env` / `---@declare-global`; `getFunctionSelfNode(func)` — resolves `self` inside a table-literal method to the enclosing class table (see below) |
+| `script/parser/compile.lua` | `hasExportEnv` flag; export-env converts top-level globals to exported locals, builds the synthetic module-return table, and **rebinds forward references** (getglobal/setglobal parsed before the exported local existed) after the chunk is parsed — see the exportEnvDefault section |
+| `script/parser/guide.lua` | `isExportEnv(state)` reads per-file `---@export-env` / `---@declare-global` / `---@meta` — **prefix-matched with a word boundary**, so `---@meta string` (every builtin meta file since LuaLS 3.6) is recognized; `getFunctionSelfNode(func)` — resolves `self` inside a table-literal method to the enclosing class table (see below) |
 | `script/config/template.lua` | Registers the `Lua.runtime.exportEnvDefault` config key |
 | `script/files.lua` | Passes `exportEnvDefault` from config to compiler options |
 | `script/vm/compiler.lua` | Uses `getFunctionSelfNode` for un-annotated `self`; **`vm.getClassFields` now also merges fields from the FA class-factory call-sugar pattern** (`Factory(Base) { ... }`) — see below |
 | `locale/en-us/setting.lua` | Description for `exportEnvDefault` (note: `disableScheme` / `supportScheme` strings already exist in *stock* LuaLS and are not FA additions) |
 | `meta/3rd/fa-lib/config.json` | 3rd-party library config: sets `Lua.runtime.version = "LuaFA"`, registers `moho` as a global, and disables the `inject-field` diagnostic |
+| `script/core/folding.lua` | Fixes upstream code-folding bugs (stock LuaLS, not FA-specific) via a shared `foldDocGroup` helper — see below |
+| `script/vm/doc.lua` | `getValidVersions`: `LuaFA` inherits Lua 5.1 validity for `---@version`-gated builtins (kills bogus `deprecated` strikethroughs on `table.getn` etc.) |
+| `script/vm/variable.lua` | `compileExplicitSelf`: links `self.Field = ...` assignments made inside spec-table methods (`__init = function(self, ...)`) back to the class variable, so subclasses see them (e.g. `Window`'s `StartSizing`) |
+| `meta/3rd/fa-lib/library/stdlib/table.lua` | Re-declares `table.getn` / `foreach` / `foreachi` without `---@deprecated` (FA's Lua 5.0 runtime supports them natively) |
+| `meta/3rd/fa-lib/library/stdlib/moduleinfo.lua` | Declares FA's engine-injected per-module `__moduleinfo` global |
 
 > **Corrected from an earlier draft of this doc:** previous versions of this file described
 > patches to `script/brave/brave.lua`, `script/brave/work.lua`, `script/provider/diagnostic.lua`,
@@ -46,6 +51,16 @@ Only modify the C++ layer when you need new native symbols.
 > The `undefined-field`-inside-`__init` and `inject-field` sections below have been rewritten
 > to describe what is *actually* in this package, plus a real fix for the `__init` bug that
 > was previously only documented as a TODO.
+>
+> **Packaging fixes in the current revision:** `script/core/definition.lua` and
+> `script/core/reference.lua` were FA-modified but had **no** corresponding files in
+> `patches/` — applying `patches/*.patch` to a clean tree silently missed those changes.
+> Both patches now exist. Several pre-patched files (`luadoc.lua`, `files.lua`,
+> `template.lua`, `definition.lua`, `reference.lua`, `setting.lua`) were CRLF while
+> patch-application produces LF; all are normalized to LF, and it is now verified that
+> applying `patches/*.patch` to pristine 3.18.2 yields a tree byte-identical to the
+> pre-patched files in this package. Regression workspaces live in `verification/`
+> (see its README) — run them after any change or version bump.
 
 ---
 
@@ -101,6 +116,49 @@ to `__init` genuinely no longer matters, and no diagnostic-suppression band-aid 
 
 **Patch file:** `patches/script_vm_compiler.lua.patch` (regenerated; now contains both the
 `getFunctionSelfNode` hunk and the `getClassFields` hunk).
+
+### `undefined-field` on fields assigned via `self.X = ...` in a parent class's methods
+
+**Symptom:**
+```
+Undefined field `StartSizing`. Lua Diagnostics.(undefined-field)
+(field) UIChatInterface.StartSizing: unknown
+```
+on `self.StartSizing(event, ...)` in a class extending `Window`, even after the
+call-sugar fix above. `StartSizing` is not a spec-table field of `Window` — it is
+assigned dynamically inside `Window`'s `__init`:
+```lua
+Window = ClassUI(Group) {
+    __init = function(self, parent, ...)
+        ...
+        self.StartSizing = function(event, xControl, yControl) ... end
+    end,
+}
+```
+
+**Root cause:** LuaLS *does* collect `self.x = ...` assignments into a class's field
+set — but only for the **implicit** `self` created by `function X:y()` methods
+(AST node type `self`). `vm/variable.lua`'s `compileSelf` walks
+`eachSourceType(ast, 'self')` and registers each `self.field = ...` setfield under the
+class variable's ID. FA spec-table methods declare `self` as an **explicit first
+parameter** (a plain `local` named `"self"`), which that pass never visits, so fields
+assigned this way were invisible to `vm.getClassFields` — in the current class *and* in
+every subclass.
+
+**Fix (implemented in this package):** `vm/variable.lua` gains `compileExplicitSelf`,
+run from `compileAst` over every `function` node. If the function's first parameter is a
+local named `self`, it anchors it via `guide.getFunctionSelfNode` (which already
+understands the spec-table shapes), unwraps the `select` node that LuaLS inserts between
+a call and its assignment, walks up to the assignment target
+(`Window = ClassUI(Group){...}`, `local X = ...`, `a.b = ...`), and registers the
+collected `self.*` setfields on that variable exactly like `compileSelf` does for
+implicit selves. Verified against fa-lib's real `window.lua`: a class extending `Window`
+now resolves `self.StartSizing` with no diagnostic. Side effect (verified on the real FA
+chat UI sources): a couple of *genuine* `duplicate-set-field` diagnostics now appear
+where a subclass re-assigns a handler its parent also assigns — correct detections that
+were previously impossible.
+
+**Patch file:** `patches/script_vm_variable.lua.patch` (new).
 
 ---
 
@@ -167,21 +225,49 @@ dismissed, or was never shown, none of `fa-lib/config.json`'s settings apply, in
 
 ---
 
-### `table` not resolving in `table.getn` (and other FA stdlib overrides)
+### `table` / `string` (the entire standard library) undefined under export-env — FIXED
 
-`meta/3rd/fa-lib/library/stdlib/table.lua` adds `table.getn` (removed from stock Lua by
-5.2, but present in FA's runtime) as an augmentation onto the *existing* `table` global —
-it does not redeclare `table` itself, which is correct and mirrors how the official addons
-extend built-in libraries. If `table.getn` (or `table` itself) isn't resolving, this is the
-same root cause as the `inject-field` case above: `meta/3rd/fa-lib/library` never got added
-to `Lua.workspace.library`, so none of FA's stdlib overrides are visible, and depending on
-whether `Lua.runtime.version` also failed to apply as `"LuaFA"`, the workspace may be
-falling back to a stock Lua 5.4/5.5 runtime, whose official meta doesn't define `table.getn`
-at all (it was removed in 5.2). The `.luarc.json` snippet above should resolve this too. If
-`table` itself (not just `.getn`) is still flagged as unrecognized after adding that config,
-that would point to something more specific — worth sharing the exact diagnostic message/
-hover text on `table` if it persists, since "table itself undefined" is a stronger symptom
-than a missing-field warning and would need to be traced separately.
+**Symptom:** with `Lua.runtime.exportEnvDefault = true`, *every* stdlib global is broken:
+```
+Undefined global `string`. Lua Diagnostics.(undefined-global)
+```
+with hover showing only the FA augmentations (`gfind`, `lualex`, ...) as `unknown` —
+plus the same for `table`, `math`, etc.
+
+**Root cause (empirically confirmed):** `guide.isExportEnv` compared comment directives
+with **exact string equality**: `com.text == '-@meta'`. That was correct against the FAF
+fork's own vintage of LuaLS, whose builtin meta templates begin with a bare `---@meta` —
+but since LuaLS 3.6 every generated builtin meta file begins with a *named* meta
+directive (`---@meta string`, `---@meta table`, ...), whose comment text is
+`-@meta string` and never matches. Result: the builtin meta files were **not** exempted
+from export-env, so the parser converted their top-level `string = {}` / `table = {}`
+global-sets into *locals*, deleting the entire standard library from the global registry.
+This is why "even `table` is undefined" — it had nothing to do with
+`workspace.library` configuration.
+
+**Fix:** `isExportEnv` now prefix-matches each directive with a word boundary
+(`commentIsDirective` in `parser/guide.lua`), so `---@meta`, `---@meta string`,
+trailing whitespace, and CRLF are all recognized, while `---@metadata` is not. The
+directives are read from the leading comment block only (they must appear above the
+first statement — which is where `---@meta` / `---@declare-global` conventionally live,
+e.g. line 1 of fa-lib's `class.lua`).
+
+Two follow-on issues surfaced and are fixed in the same pass:
+
+1. **`deprecated` strikethrough on `table.getn` etc.** The builtin 5.1 meta marks
+   `getn`/`foreach`/`foreachi` `---@deprecated`, and `---@version`-gated symbols were
+   additionally "invalid" because `vm.getValidVersions` had no `LuaFA` key. Fixed in
+   `script/vm/doc.lua` (`LuaFA` inherits Lua 5.1 validity) plus
+   `meta/3rd/fa-lib/library/stdlib/table.lua`, which re-declares the three functions
+   without `---@deprecated` — LuaLS only reports `deprecated` when *every* definition
+   carries the tag, so the clean re-declaration suppresses it while keeping the builtin
+   docs. (fa-lib already used this exact pattern for `table.setn`, `string.gfind`,
+   `math.mod`; `getn`/`foreach`/`foreachi` were simply missing.)
+
+2. **`Undefined global __moduleinfo`** (97 hits across just the 42 chat-UI files used as
+   a smoke test): FA's module system injects `__moduleinfo` into every module
+   environment; fa-lib never declared it. Declared in
+   `meta/3rd/fa-lib/library/stdlib/moduleinfo.lua`.
 
 ---
 
@@ -222,21 +308,42 @@ If so, add them to the pre-capture block before `_ENV = nil`.
 
 ## exportEnvDefault Implementation
 
-The export-env system marks top-level globals with `.export = true` on their AST nodes.
-It does NOT inject fake return statements or re-tag node types — doing so breaks the
-document symbol provider, semantic token engine, and causes 3–7 second hangs.
+FA modules are order-free namespaces: a top-level `Foo = ...` is module-scoped (other
+files reach it via `import('/lua/x.lua').Foo`), and a function body may freely call a
+function declared further down the file, because bodies only run after the whole module
+has executed. The export-env system models this with three cooperating parts, all in
+`parser/compile.lua`, gated on `State.hasExportEnv` (computed once after the leading
+comment block is consumed, via `guide.isExportEnv`):
 
-**Correct approach:**
-1. `guide.isExportEnv(state)` checks per-file comment directives vs config default
-2. `compile.lua` calls it once at parse start: `State.hasExportEnv = guide.isExportEnv(State)`
-3. `compileExpAsAction` sets `.export = true` on `getglobal` nodes at top chunk level
-4. Function declaration handler in `parseAction` sets `.export = true` on `setglobal` nodes
+1. **Top-level globals become exported locals.** `resolveName` (assignment context) and
+   the function-statement handler in `parseAction` create a `local` with
+   `.export = true` instead of a setglobal. This keeps module "globals" out of the true
+   global namespace (no cross-module pollution or collisions).
+2. **Forward references are rebound post-parse.** Locals are position-scoped, so any
+   reference parsed *before* the declaration became a `getglobal`/`setglobal` bound to
+   `_ENV` — producing bogus `undefined-global` for legal FA code. After `parseLua`
+   finishes the chunk, a fixup pass walks `_ENV`'s ref list and rebinds every
+   getglobal/setglobal whose name matches an exported top-level local (skipping
+   `.special` nodes like `import`/`require`) into getlocal/setlocal on that local.
+   Verified: outline and semantic tokens stay correct, and `Foo = Foo + 1` inside a
+   function above `function Foo...` resolves.
+3. **A synthetic module-return table** is appended so `import(...)` results carry the
+   exported fields. Its nodes use `fakePos = main.finish` — **never** `start = -1`,
+   which breaks range-based queries (see Common Failures).
 
 **Wrong approaches (have been tried, all broke things):**
-- Re-tagging `exp.type = 'local'` — breaks symbol provider
+- Re-tagging a *declaration's* `exp.type = 'local'` in place — breaks symbol provider
+  (the post-parse rebinding above retypes only *references*, get→get/set→set, which are
+  shape-identical to ordinary local refs and are retyped before luadoc/VM ever run)
 - Injecting `return { ... }` nodes with `start = -1` — breaks range-based queries
 - Calling `pushActionIntoCurrentChunk` from inside `resolveName` — that function is
   defined 800 lines later; `_ENV = nil` makes it an uncaptured global → crash
+- Exact-equality matching of comment directives in `isExportEnv` — silently mangles the
+  builtin meta on LuaLS ≥ 3.6 (see the stdlib section above)
+
+**`_ENV = nil` reminder for this code:** the rebinding pass runs inside `compile.lua`,
+so it uses only numeric `for` loops, the `#` operator, and the local `values()`
+iterator — no `ipairs`/`pairs`/`next`.
 
 ---
 
@@ -254,6 +361,72 @@ A standalone `#region` at the start of a line (no leading `--`) is a valid FA-st
 comment. The preprocessor replaces the `#` with `--`, making it `--region`. This is
 treated as a regular comment; it will **not** trigger fold markers (use `--#region`
 instead if you want foldable regions in FA code).
+
+---
+
+## Code Folding Bugs (stock LuaLS, patched here)
+
+Distinct from `--#region`/`--#endregion` above (which was already fine) — these are three
+linked upstream reports, all the same root cause, and apply to any Lua project on stock
+LuaLS, not just FA code:
+[#2581](https://github.com/LuaLS/lua-language-server/issues/2581),
+[#3220](https://github.com/LuaLS/lua-language-server/issues/3220),
+[#2552](https://github.com/LuaLS/lua-language-server/issues/2552).
+
+**Symptom:** a function (or `---@class` local) preceded by a doc comment, where the
+declaration line itself carries a trailing inline comment —
+```lua
+---@param bar integer
+function foo(bar) -- comment
+  ...
+end
+```
+— gets a broken fold: the chevron sits next to the `---@param` line instead of the
+function, and folding it only collapses that one line instead of the function body.
+
+**Root cause (empirically confirmed, not just theorized — see below):** `parser/luadoc.lua`'s
+doc-binding pass captures *any* trailing comment on the declaration line as an extra
+`doc.comment` entry appended to `source.bindDocs` (or `bindGroup` for `doc.class`). When
+that entry's line happens to coincide with the declaration's own line, `core/folding.lua`'s
+`hideLastLine = true` (which normally makes a clean multi-line docblock collapse to a
+single marker line) instead produces a second, malformed `comment`-kind folding range that
+overlaps the function's own `region` range and starts on the doc-comment's line — which is
+what the editor actually shows as the broken chevron.
+
+**Verification method:** the full server binary was built from source (luamake +
+submodules) and `core/folding.lua` was exercised through the real
+`textDocument/foldingRange` line-conversion math from `provider/provider.lua`, against
+each repro from the three issues plus control cases (clean multi-line `---@param`
+blocks, annotation-only `---@class` blocks, `--#region`, if/elseif/else chains, FA
+spec-table classes, and a multi-line `--[[ ]]` *trailing* comment). Patched output for
+the buggy #2552 case is byte-identical to what stock produces for the same code without
+the inline comment — i.e. the buggy shape now folds exactly like the clean shape.
+
+**Fix:** `script/core/folding.lua` — a shared `foldDocGroup(docs, stmtPos, results)`
+helper used by the `function`, `doc.class`, and `doc.alias` cases. Instead of blindly
+ending the comment fold at the doc group's *last* entry (which may be the captured
+trailing inline comment on the declaration line — or even a multi-line `--[[ ]]`
+trailing comment reaching *into* the body), it scans the group backwards for the last
+entry finishing on a line **above** the documented statement and ends the fold there
+with `hideLastLine = true`:
+
+- a clean multi-line docblock still folds down to its first line, unchanged;
+- a trailing inline comment can never drag the fold onto or past the declaration line
+  (the earlier revision of this fix only *toggled* `hideLastLine`, which still emitted a
+  malformed second range whenever the doc block was multi-line — the #2552 long-comment
+  case);
+- if nothing in the group sits above the statement (a single stray inline comment), the
+  emitted range degenerates to one line and the provider's `startLine < endLine` check
+  drops it;
+- `doc.class`/`doc.alias` compare against `source.bindSource.start` when present, and
+  fall back to folding the whole group (`hideLastLine = true`) for annotation-only
+  blocks with no bound statement.
+
+The `care` table in `folding.lua` was also converted from one large table literal to
+individual `care['x'] = function ... end` assignments so the helper can live above it —
+diff is larger than the logic change for that reason.
+
+**Patch file:** `patches/script_core_folding.lua.patch`
 
 ---
 
@@ -558,6 +731,18 @@ Use explicit `.a` file paths in the link command instead.
    - The `if token == '//' or token == '<<' or token == '>>'` block in `parseBinaryOP`
      in `compile.lua` — confirm our `and State.version ~= 'LuaFA'` line is still present
      and that LuaLS hasn't moved or restructured this version guard.
+   - `isExportEnv`/`commentIsDirective` in `parser/guide.lua` — and check whether the
+     builtin meta templates' `---@meta <name>` header convention changed again
+   - The export-env block at the end of `parseLua` in `compile.lua` (forward-reference
+     rebinding + synthetic return table) — confirm `_ENV` is still `main.locals`-reachable
+     via its `tag == '_ENV'` and that getglobal/setglobal still push into `env.ref`
+   - `getValidVersions` in `vm/doc.lua` — the `valids` table and the `LuaJIT` mirroring
+     line our `LuaFA` line sits next to
+   - `compileSelf`/`compileAst` in `vm/variable.lua` — our `compileSelfFields` /
+     `compileExplicitSelf` refactor wraps the original body; check `insertVariableID`,
+     `vm.getVariableFields`, and the call-value `select` wrapper are unchanged
+   - `foldDocGroup` targets in `core/folding.lua` — `bindDocs`/`bindGroup`/`bindSource`
+     field names on `function`/`doc.class`/`doc.alias` sources
 4. Run `./3rd/luamake/luamake rebuild` — all tests must pass.
 5. Regenerate `win32-cross-compile.ninja` using the substitutions above.
 6. Rebuild the Windows exe and verify DLL dependencies.

@@ -1,6 +1,6 @@
 --- "lua-language-server-3.18.2/script/files.lua"
 +++ "faf-lua-language-server-patch/script/files.lua"
-@@ -601,6 +601,7 @@ function m.compileStateAsync(uri, callback)
+@@ -601,6 +601,7 @@
          special           = config.get(uri, 'Lua.runtime.special'),
          unicodeName       = config.get(uri, 'Lua.runtime.unicodeName'),
          nonstandardSymbol = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),
@@ -8,7 +8,7 @@
      }
  
      ---@type brave.param.compile
-@@ -655,6 +656,7 @@ function m.compileState(uri)
+@@ -655,6 +656,7 @@
          special           = config.get(uri, 'Lua.runtime.special'),
          unicodeName       = config.get(uri, 'Lua.runtime.unicodeName'),
          nonstandardSymbol = util.arrayToHash(config.get(uri, 'Lua.runtime.nonstandardSymbol')),

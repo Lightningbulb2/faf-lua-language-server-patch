@@ -207,6 +207,50 @@ local function compileSingleMetaDoc(uri, script, metaLang, status)
         log.debug('MiddleScript:\n', middleScript)
     end
     local text = table.concat(compileBuf)
+
+    -- FAForever: a few builtin functions (`table.getn`, `table.foreach`,
+    -- `table.foreachi`) carry a *hardcoded* `---@deprecated` line in the
+    -- template -- not one emitted by `ALIVE`/`@version` -- so it survives into
+    -- every generated runtime, LuaFA included, even though FA's Lua 5.0/5.1
+    -- runtime supports them natively. The `stdlib/*.lua` overrides in fa-lib
+    -- fix this, but only when the *entire* library dir is on
+    -- `Lua.workspace.library`; under other layouts (`userThirdParty`, partial
+    -- scans) those overrides may not load, and the strikethrough returns.
+    -- Fix it at the source instead: when generating LuaFA meta, drop a
+    -- hardcoded `---@deprecated` from any declaration whose annotation block
+    -- also carries `---@version <5.1` (i.e. the symbol is alive in 5.1, and
+    -- therefore in LuaFA). Symbols deprecated by `@version` alone are already
+    -- handled by `vm.getValidVersions`; this only touches the hardcoded tag.
+    if runtimeVer == 'LuaFA' then
+        -- Lua patterns can't repeat a capture group, so scan line by line:
+        -- within a single annotation block (a run of consecutive `---` lines),
+        -- if the block declares `---@version ...<5.1...` then a *hardcoded*
+        -- `---@deprecated` line in that same block is dropped. Blank or code
+        -- lines reset the block, so an unrelated later `---@deprecated` is
+        -- never touched. Only affects the three 5.0/5.1-native builtins
+        -- (`table.getn`/`foreach`/`foreachi`) that hardcode the tag;
+        -- `@version`-only deprecations are handled by `vm.getValidVersions`.
+        local outLines = {}
+        local blockAliveIn51 = false
+        for line in (text .. '\n'):gmatch('([^\n]*)\n') do
+            local isDoc = line:match('^%s*%-%-%-')
+            if isDoc then
+                if line:match('^%s*%-%-%-@version') and line:match('<%s*5%.1') then
+                    blockAliveIn51 = true
+                end
+                if blockAliveIn51 and line:match('^%s*%-%-%-@deprecated%s*$') then
+                    -- skip this line
+                else
+                    outLines[#outLines+1] = line
+                end
+            else
+                outLines[#outLines+1] = line
+                blockAliveIn51 = false
+            end
+        end
+        text = table.concat(outLines, '\n')
+    end
+
     if disable and status == 'default' then
         return text, false
     end

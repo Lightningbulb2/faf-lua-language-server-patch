@@ -1,0 +1,108 @@
+--- "lua-language-server-3.18.2/script/vm/variable.lua"
++++ "faf-lua-language-server-patch/script/vm/variable.lua"
+@@ -355,15 +355,8 @@
+ end
+ 
+ ---@param source parser.object
+-local function compileSelf(source)
+-    if source.parent.type ~= 'funcargs' then
+-        return
+-    end
+-    ---@type parser.object
+-    local node = source.parent.parent and source.parent.parent.parent and source.parent.parent.parent.node
+-    if not node then
+-        return
+-    end
++---@param node parser.object
++local function compileSelfFields(source, node)
+     local fields = vm.getVariableFields(source, false)
+     if not fields then
+         return
+@@ -392,6 +385,76 @@
+ end
+ 
+ ---@param source parser.object
++local function compileSelf(source)
++    if source.parent.type ~= 'funcargs' then
++        return
++    end
++    ---@type parser.object
++    local node = source.parent.parent and source.parent.parent.parent and source.parent.parent.parent.node
++    if not node then
++        return
++    end
++    compileSelfFields(source, node)
++end
++
++--- FAForever: fa-lib classes declare their methods inside the factory's spec
++--- table -- `Window = ClassUI(Group) { __init = function(self, ...) ... end }`
++--- -- so `self` is an *explicit* first parameter (a plain local named "self"),
++--- not the implicit `self` of `function X:y()` that compileSelf handles. That
++--- meant every `self.StartSizing = function(...) end` written inside `__init`
++--- (or any other spec-table method) was never linked back to the class
++--- variable, so such fields stayed invisible to `vm.getClassFields` and
++--- produced `undefined-field` in subclasses (`self.StartSizing(...)` from a
++--- class extending Window).
++---
++--- Anchor the explicit self through guide.getFunctionSelfNode (which already
++--- understands the spec-table / call-sugar shapes) and walk up to the
++--- assignment target (`Window = ClassUI(Group){...}` / `local X = ...`) so the
++--- collected `self.*` setfields are registered on the class variable exactly
++--- like compileSelf does for implicit selves.
++---@param func parser.object
++local function compileExplicitSelf(func)
++    if not func.args then
++        return
++    end
++    local firstArg = func.args[1]
++    if not firstArg
++    or firstArg.type ~= 'local'
++    or firstArg[1] ~= 'self' then
++        return
++    end
++    local anchor = guide.getFunctionSelfNode(func)
++    if not anchor then
++        return
++    end
++    if anchor.type == 'table'
++    or anchor.type == 'call' then
++        -- resolve the spec table / factory call to whatever it is assigned to
++        local assign = anchor.parent
++        if not assign then
++            return
++        end
++        -- a call used as a value is wrapped in a `select` node
++        if assign.type == 'select' then
++            assign = assign.parent
++            if not assign then
++                return
++            end
++        end
++        if assign.type == 'local'
++        or assign.type == 'setlocal'
++        or assign.type == 'setglobal'
++        or assign.type == 'setfield'
++        or assign.type == 'setindex' then
++            anchor = assign
++        else
++            return
++        end
++    end
++    compileSelfFields(firstArg, anchor)
++end
++
++---@param source parser.object
+ local function compileAst(source)
+     --[[
+     local mt
+@@ -404,6 +467,10 @@
+     guide.eachSourceType(source, 'self', function (src)
+         compileSelf(src)
+     end)
++    -- FAForever: also link explicit `function(self, ...)` spec-table methods
++    guide.eachSourceType(source, 'function', function (src)
++        compileExplicitSelf(src)
++    end)
+ end
+ 
+ return {

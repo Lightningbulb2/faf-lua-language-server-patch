@@ -26,8 +26,8 @@ to support Supreme Commander: Forged Alliance development.
 
 ### `---@export-env` / `---@declare-global` Directives
 
-Controlled by `Lua.runtime.exportEnvDefault` (set to `true` automatically by the FA type
-library's `config.lua`).
+Controlled by `Lua.runtime.exportEnvDefault` (set it to `true` in your workspace's
+`.luarc.json`; the FA type library's `config.json` supplies the rest of the FA defaults).
 
 FA scripts define module-level globals that other files access through the environment
 rather than explicit `require`. These directives control how the server treats globals
@@ -40,10 +40,21 @@ per-file:
 | `---@export-env`                            | Opts this file **in** when `exportEnvDefault = false` |
 | `---@meta`                                  | Marks file as type-declaration; disables export-env   |
 
-**Implementation:** `guide.lua` adds `isExportEnv(state)` which reads per-file comment
-directives. `compile.lua` calls it once at parse start and sets `State.hasExportEnv`.
-`compileExpAsAction` and the function-declaration handler in `parseAction` mark top-level
-globals with `.export = true` when active. No AST nodes are added or re-typed.
+Directives are read from the leading comment block (above the first statement) and are
+**prefix-matched**: `---@meta string` — the header every builtin meta file has carried
+since LuaLS 3.6 — is recognized as `---@meta`. (An earlier revision compared for exact
+equality, which silently ran export-env over the builtin standard-library meta and made
+`string`, `table`, etc. undefined everywhere.)
+
+**Implementation:** `guide.lua` adds `isExportEnv(state)`; `compile.lua` calls it after
+the leading comments are consumed and sets `State.hasExportEnv`. When active, top-level
+globals are created as *exported locals* (keeping module symbols out of the true global
+namespace), a synthetic module-return table is appended so `import(...)` carries the
+exports, and — because locals are position-scoped while FA modules are order-free — a
+post-parse pass rebinds forward references (uses of a module symbol textually above its
+declaration) onto the exported local, so they resolve with full type info instead of
+reporting `undefined-global`. See `SKILL.md` → *exportEnvDefault Implementation* for the
+details and the list of approaches that don't work.
 
 ### Support both "--" and "#" syntax for comments
 
@@ -98,7 +109,7 @@ The FA class system uses several Lua 5.0-era features that the LS needs to handl
 
 **`arg` implicit vararg table** — In Lua 5.0, vararg functions receive arguments as
 `arg = {..., n=N}` rather than `...`. FA's class system uses `unpack(arg)` throughout.
-`config.lua` now declares `arg` as a known global to suppress undefined-global warnings.
+The FA library declares `arg` as a known global to suppress undefined-global warnings.
 
 **`Class(...)` / `State(...)` / `ConstructClass(...)` types** — The class system file
 (`class.lua`) is included in the FA library so the LS understands the `fa-class` and
@@ -123,13 +134,19 @@ When the user annotates `---@param self UIChatInterface`, LuaLS resolves the typ
 through a separately-declared `---@class` annotation. That declaration may not list
 every method from the class table literal, so `SetupDragHandles` resolves as `unknown`.
 
-**Fix:** `script/core/diagnostics/undefined-field.lua` — a small `isInsideFAInit(src)`
-helper walks the AST upward: `getfield`/`getmethod` → `getParentFunction` →
-`function.parent` (the `tablefield` node) → checks the key is `__init` or
-`__post_init`. If so, the `undefined-field` check is skipped.
+**Fix:** no diagnostic suppression — the class actually learns its fields.
+`vm.getClassFields` (`script/vm/compiler.lua`) gains a third field-source branch next to
+the bare-table and `setmetatable` cases: when the `---@class`-bound expression is a call
+whose last argument is a table literal (the `Factory(Base) { ... }` call-sugar), that
+table's fields are merged into the class. Works for `Class{...}`, `ClassUI(Base){...}`,
+`State{...}`, etc., in any definition order — and a genuine typo still reports
+`undefined-field` correctly.
 
-Only the two init-method names are suppressed; all other function bodies and top-level
-code are unaffected.
+Fields a parent class assigns dynamically (`self.StartSizing = function(...) end` inside
+`Window`'s `__init`) are covered too: `script/vm/variable.lua` now links `self.*`
+assignments made through an **explicit** `self` parameter (spec-table methods) back to
+the class variable, the same way stock LuaLS already did for the implicit `self` of
+`function X:y()`. Subclasses of `Window` resolve `self.StartSizing` with no diagnostic.
 
 ---
 
@@ -219,7 +236,7 @@ update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++
 This is all built on top of the Lua Language Server so clone that somewhere and cd into it.
 
 ```sh
-git clone --branch 3.18.2 https://github.com/LuaLS/lua-language-server
+git clone --depth 1 --branch 3.18.2 https://github.com/LuaLS/lua-language-server
 cd lua-language-server
 git submodule update --init --recursive
 ```
@@ -261,21 +278,25 @@ Or copy the pre-patched files directly (replacing the cloned versions):
 # SRC="/your/path/to/faf-lua-language-server-patch"
 
 cp $SRC/locale/en-us/setting.lua                     locale/en-us/setting.lua
-cp $SRC/script/brave/brave.lua                       script/brave/brave.lua
-cp $SRC/script/brave/work.lua                        script/brave/work.lua
 cp $SRC/script/config/template.lua                   script/config/template.lua
 cp $SRC/script/core/color.lua                        script/core/color.lua
 cp $SRC/script/core/completion/completion.lua        script/core/completion/completion.lua
 cp $SRC/script/core/completion/keyword.lua           script/core/completion/keyword.lua
-cp $SRC/script/core/diagnostics/undefined-field.lua  script/core/diagnostics/undefined-field.lua
+cp $SRC/script/core/definition.lua                   script/core/definition.lua
+cp $SRC/script/core/document-symbol.lua              script/core/document-symbol.lua
+cp $SRC/script/core/folding.lua                      script/core/folding.lua
+cp $SRC/script/core/reference.lua                    script/core/reference.lua
 cp $SRC/script/files.lua                             script/files.lua
 cp $SRC/script/library.lua                           script/library.lua
 cp $SRC/script/parser/compile.lua                    script/parser/compile.lua
 cp $SRC/script/parser/guide.lua                      script/parser/guide.lua
-cp $SRC/script/provider/diagnostic.lua               script/provider/diagnostic.lua
-cp $SRC/script/provider/provider.lua                 script/provider/provider.lua
+cp $SRC/script/parser/luadoc.lua                     script/parser/luadoc.lua
 cp $SRC/script/vm/compiler.lua                       script/vm/compiler.lua
 cp $SRC/script/vm/doc.lua                            script/vm/doc.lua
+cp $SRC/script/vm/variable.lua                       script/vm/variable.lua
+cp $SRC/script/vm/visible.lua                        script/vm/visible.lua
+cp $SRC/script/workspace/require-path.lua            script/workspace/require-path.lua
+cp $SRC/script/workspace/workspace.lua               script/workspace/workspace.lua
 ```
 
 ### Step 4 — Build luamake

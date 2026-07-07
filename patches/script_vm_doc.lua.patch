@@ -1,0 +1,14 @@
+--- "lua-language-server-3.18.2/script/vm/doc.lua"
++++ "faf-lua-language-server-patch/script/vm/doc.lua"
+@@ -122,6 +122,11 @@
+     if valids['Lua 5.1'] then
+         valids['LuaJIT'] = true
+     end
++    -- FAForever: FA's runtime is Lua 5.0/5.1 based; anything valid for
++    -- Lua 5.1 (e.g. `table.getn`, `string.gfind` via ---@version 5.1 in the
++    -- builtin meta) is valid for LuaFA. Without this, every 5.1-gated
++    -- builtin gets a bogus `deprecated` strikethrough under LuaFA.
++    valids['LuaFA'] = valids['Lua 5.1']
+     doc._validVersions = valids
+     return valids
+ end

@@ -1,0 +1,13 @@
+--- "lua-language-server-3.18.2/script/core/reference.lua"
++++ "faf-lua-language-server-patch/script/core/reference.lua"
+@@ -140,6 +140,10 @@
+         if src.type == 'doc.param' then
+             goto CONTINUE
+         end
++        
++        if src.start == -1 and src.finish == -1 then
++            goto CONTINUE
++        end
+ 
+         results[#results+1] = {
+             target = src,

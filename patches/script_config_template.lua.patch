@@ -1,6 +1,6 @@
 --- "lua-language-server-3.18.2/script/config/template.lua"
 +++ "faf-lua-language-server-patch/script/config/template.lua"
-@@ -185,6 +185,7 @@ end)
+@@ -185,6 +185,7 @@
  ---@format disable-next
  local template = {
      ['Lua.runtime.version']                 = Type.String >> 'Lua 5.4' << {
@@ -8,7 +8,7 @@
                                                  'Lua 5.1',
                                                  'Lua 5.2',
                                                  'Lua 5.3',
-@@ -228,6 +229,9 @@ local template = {
+@@ -228,6 +229,9 @@
                                              }),
      ['Lua.runtime.plugin']                  = Type.Or(Type.String, Type.Array(Type.String)) ,
      ['Lua.runtime.pluginArgs']              = Type.Or(Type.Array(Type.String), Type.Hash(Type.String, Type.String)),
