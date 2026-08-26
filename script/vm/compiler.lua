@@ -1308,6 +1308,33 @@ local function compileForVars(source, target)
     if not source.exps then
         return false
     end
+    
+    -- FAForever: reflect moho lua interpreter's behavior of setting `_G.next`
+    -- as the iterator when the iterator exp is a table.
+    if config.get(source.uri, 'Lua.runtime.version') == 'LuaFA' then
+        local firstExpNode = vm.getNode(source.exps[1])
+        if firstExpNode and firstExpNode:hasName('table') then
+            local globalVar = vm.getGlobal('variable', 'next')
+            if globalVar then
+                -- Synthesize a global variable lookup for `next`
+                ---@type parser.object
+                ---@diagnostic disable-next-line: missing-fields
+                local nextAstNode = {
+                    type        = 'getglobal',
+                    [1]         = 'next',
+                    uri         = source.uri,
+                    start       = source.start,
+                    finish      = source.finish,
+                    parent      = source,
+                    _globalNode = globalVar,
+                }
+
+                source.exps[2] = source.exps[1]
+                source.exps[1] = nextAstNode
+            end
+        end
+    end
+
     --  for k, v in pairs(t) do
     --> for k, v in iterator, status, initValue do
     --> local k, v = iterator(status, initValue)
