@@ -178,6 +178,31 @@ function mt:searchUrisByRequireName(name, suri)
         end
     end
 
+    -- Handle leading-slash paths as workspace-root-relative
+    if path:sub(1, 1) == '/' then
+        local workspaceUri = self.scp.uri
+        if workspaceUri then
+            local workspacePath = furi.decode(workspaceUri)
+            local targetPath = workspacePath .. path
+            local targetUri = furi.encode(targetPath)
+
+            for uri in files.eachFile(self.scp.uri) do
+                if  not excludes[uri]
+                and (not vm.isMetaFile(uri) or vm.isMetaFileRequireable(uri)) then
+                    -- Normalize both URIs for comparison
+                    local normalizedUri = uri:gsub('\\', '/'):lower()
+                    local normalizedTarget = targetUri:gsub('\\', '/'):lower()
+                    if normalizedUri == normalizedTarget or uri == targetUri then
+                        results[#results+1] = uri
+                        searcherMap[uri] = path
+                        return results
+                    end
+                end
+            end
+            return results, searcherMap
+        end
+    end
+
     for _, searcher in ipairs(searchers) do
         local fspath = searcher:gsub('%?', (path:gsub('%%', '%%%%')))
         fspath = files.normalize(fspath)
